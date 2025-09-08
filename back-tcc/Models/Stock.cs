@@ -3,17 +3,17 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace back_tcc.Models;
 
-[Table("Estoque")]
+[Table("estoque")]
 public class Stock
 {
     [Key]
-    public Guid Id { get; set; }
+    public Guid id { get; set; }
 
-    public Guid ProdutoId { get; set; }
+    public Guid produtoid { get; set; }
 
-    public int Quantidade { get; set; }
+    public int quantidade { get; set; }
 
-    public int MinimoAlerta { get; set; }
+    public int minimoalerta { get; set; }
 
-    public DateTime AtualizadoEm { get; set; }
+    public DateTime atualizadoem { get; set; }
 }

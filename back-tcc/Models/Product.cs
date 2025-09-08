@@ -10,22 +10,22 @@ public enum ProductAvailability
     ForaDeEstoque
 }
 
-[Table("Produto")]
+[Table("produto")]
 public class Product
 {
     [Key]
-    public Guid Id { get; set; }
+    public Guid id { get; set; }
 
-    [Column("Nome"), Required]
+    [Column("nome"), Required]
     public string Name { get; set; } = string.Empty;
 
-    [Column("Categoria"), Required]
+    [Column("categoria"), Required]
     public string Category { get; set; } = string.Empty;
 
-    [Column("Preco"), Range(0, double.MaxValue)]
+    [Column("preco"), Range(0, double.MaxValue)]
     public decimal Price { get; set; }
 
-    [Column("Ativo")]
+    [Column("ativo")]
     public bool Ativo { get; set; } = true;
 
     [NotMapped]

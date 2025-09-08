@@ -15,16 +15,16 @@ public class ProductsController(ApplicationDbContext context) : ControllerBase
     public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
     {
         var products = await _context.Products.ToListAsync();
-        var stocks = await _context.Stocks.ToDictionaryAsync(s => s.ProdutoId);
+        var stocks = await _context.Stocks.ToDictionaryAsync(s => s.produtoid);
 
         foreach (var product in products)
         {
-            if (stocks.TryGetValue(product.Id, out var stock))
+            if (stocks.TryGetValue(product.id, out var stock))
             {
-                product.StockQuantity = stock.Quantidade;
-                product.Availability = stock.Quantidade == 0
+                product.StockQuantity = stock.quantidade;
+                product.Availability = stock.quantidade == 0
                     ? ProductAvailability.ForaDeEstoque
-                    : stock.Quantidade <= stock.MinimoAlerta
+                    : stock.quantidade <= stock.minimoalerta
                         ? ProductAvailability.BaixoEstoque
                         : ProductAvailability.EmEstoque;
             }
@@ -44,13 +44,13 @@ public class ProductsController(ApplicationDbContext context) : ControllerBase
         var product = await _context.Products.FindAsync(id);
         if (product is null) return NotFound();
 
-        var stock = await _context.Stocks.FirstOrDefaultAsync(s => s.ProdutoId == id);
+        var stock = await _context.Stocks.FirstOrDefaultAsync(s => s.produtoid == id);
         if (stock is not null)
         {
-            product.StockQuantity = stock.Quantidade;
-            product.Availability = stock.Quantidade == 0
+            product.StockQuantity = stock.quantidade;
+            product.Availability = stock.quantidade == 0
                 ? ProductAvailability.ForaDeEstoque
-                : stock.Quantidade <= stock.MinimoAlerta
+                : stock.quantidade <= stock.minimoalerta
                     ? ProductAvailability.BaixoEstoque
                     : ProductAvailability.EmEstoque;
         }
@@ -63,13 +63,13 @@ public class ProductsController(ApplicationDbContext context) : ControllerBase
     {
         _context.Products.Add(product);
         await _context.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, product);
+        return CreatedAtAction(nameof(GetProduct), new { id = product.id }, product);
     }
 
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> PutProduct(Guid id, Product product)
     {
-        if (id != product.Id) return BadRequest();
+        if (id != product.id) return BadRequest();
         _context.Entry(product).State = EntityState.Modified;
         await _context.SaveChangesAsync();
         return NoContent();
