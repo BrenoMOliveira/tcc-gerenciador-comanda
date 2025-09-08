@@ -20,6 +20,8 @@ npm i
 npm run dev
 ```
 
+Para que o front-end se comunique com o back-end, crie um arquivo `.env` baseado em `.env.example` e ajuste a variável `VITE_API_URL` conforme a URL da API.
+
 ## Quais tecnologias são utilizadas neste projeto?
 
 Este projeto é construído com:
