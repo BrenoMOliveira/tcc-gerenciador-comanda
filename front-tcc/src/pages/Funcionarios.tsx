@@ -1,6 +1,12 @@
+import { useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 import { Plus, Edit, Trash2 } from "lucide-react";
 
 const mockEmployees = [
@@ -31,6 +37,33 @@ const mockEmployees = [
 ];
 
 export const Funcionarios = () => {
+  const [employees, setEmployees] = useState(mockEmployees);
+  const [open, setOpen] = useState(false);
+  const [newEmployee, setNewEmployee] = useState({
+    nome: "",
+    cpf: "",
+    senha: "",
+    tipo: "",
+  });
+
+  const handleAddEmployee = (e: React.FormEvent) => {
+    e.preventDefault();
+    const nextId = employees.length + 1;
+    setEmployees([
+      ...employees,
+      {
+        id: nextId,
+        nome: newEmployee.nome,
+        cargo: newEmployee.tipo,
+        email: "",
+        telefone: "",
+        status: "Ativo",
+      },
+    ]);
+    setNewEmployee({ nome: "", cpf: "", senha: "", tipo: "" });
+    setOpen(false);
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "Ativo":
@@ -49,10 +82,77 @@ export const Funcionarios = () => {
           <h1 className="text-3xl font-bold text-foreground mb-2">Funcionários</h1>
           <p className="text-muted-foreground">Gerencie a equipe do restaurante</p>
         </div>
-        <Button className="bg-gradient-primary hover:bg-primary-hover text-primary-foreground">
-          <Plus className="mr-2 h-4 w-4" />
-          Adicionar Funcionário
-        </Button>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-gradient-primary hover:bg-primary-hover text-primary-foreground">
+              <Plus className="mr-2 h-4 w-4" />
+              Adicionar Funcionário
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Novo Funcionário</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleAddEmployee} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="nome">Nome</Label>
+                <Input
+                  id="nome"
+                  value={newEmployee.nome}
+                  onChange={(e) =>
+                    setNewEmployee({ ...newEmployee, nome: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cpf">CPF</Label>
+                <Input
+                  id="cpf"
+                  value={newEmployee.cpf}
+                  onChange={(e) =>
+                    setNewEmployee({ ...newEmployee, cpf: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="senha">Senha</Label>
+                <Input
+                  id="senha"
+                  type="password"
+                  value={newEmployee.senha}
+                  onChange={(e) =>
+                    setNewEmployee({ ...newEmployee, senha: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tipo">Tipo</Label>
+                <Select
+                  onValueChange={(value) =>
+                    setNewEmployee({ ...newEmployee, tipo: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Gerente">Gerente</SelectItem>
+                    <SelectItem value="Garçom">Garçom</SelectItem>
+                    <SelectItem value="Caixa">Caixa</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="submit"
+                  className="bg-gradient-primary hover:bg-primary-hover text-primary-foreground"
+                >
+                  Salvar
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card className="dashboard-card">
@@ -71,12 +171,6 @@ export const Funcionarios = () => {
                     Cargo
                   </th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">
-                    Email
-                  </th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">
-                    Telefone
-                  </th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">
                     Status
                   </th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">
@@ -85,12 +179,10 @@ export const Funcionarios = () => {
                 </tr>
               </thead>
               <tbody>
-                {mockEmployees.map((employee) => (
+                 {employees.map((employee) => (
                   <tr key={employee.id} className="border-b border-border hover:bg-muted/50">
                     <td className="py-4 px-4 font-medium">{employee.nome}</td>
                     <td className="py-4 px-4 text-primary">{employee.cargo}</td>
-                    <td className="py-4 px-4">{employee.email}</td>
-                    <td className="py-4 px-4">{employee.telefone}</td>
                     <td className="py-4 px-4">{getStatusBadge(employee.status)}</td>
                     <td className="py-4 px-4">
                       <div className="flex gap-2">
