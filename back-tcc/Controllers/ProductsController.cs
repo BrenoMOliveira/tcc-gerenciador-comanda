@@ -13,13 +13,49 @@ public class ProductsController(ApplicationDbContext context) : ControllerBase
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
-        => await _context.Products.ToListAsync();
+    {
+        var products = await _context.Products.ToListAsync();
+        var stocks = await _context.Stocks.ToDictionaryAsync(s => s.ProdutoId);
 
-    [HttpGet("{id:int}")]
-    public async Task<ActionResult<Product>> GetProduct(int id)
+        foreach (var product in products)
+        {
+            if (stocks.TryGetValue(product.Id, out var stock))
+            {
+                product.StockQuantity = stock.Quantidade;
+                product.Availability = stock.Quantidade == 0
+                    ? ProductAvailability.ForaDeEstoque
+                    : stock.Quantidade <= stock.MinimoAlerta
+                        ? ProductAvailability.BaixoEstoque
+                        : ProductAvailability.EmEstoque;
+            }
+            else
+            {
+                product.StockQuantity = 0;
+                product.Availability = ProductAvailability.ForaDeEstoque;
+            }
+        }
+
+        return products;
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<Product>> GetProduct(Guid id)
     {
         var product = await _context.Products.FindAsync(id);
-        return product is null ? NotFound() : product;
+        if (product is null) return NotFound();
+
+        var stock = await _context.Stocks.FirstOrDefaultAsync(s => s.ProdutoId == id);
+        if (stock is not null)
+        {
+            product.StockQuantity = stock.Quantidade;
+            product.Availability = stock.Quantidade == 0
+                ? ProductAvailability.ForaDeEstoque
+                : stock.Quantidade <= stock.MinimoAlerta
+                    ? ProductAvailability.BaixoEstoque
+                    : ProductAvailability.EmEstoque;
+        }
+
+        return product;
     }
 
     [HttpPost]
@@ -30,8 +66,8 @@ public class ProductsController(ApplicationDbContext context) : ControllerBase
         return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, product);
     }
 
-    [HttpPut("{id:int}")]
-    public async Task<IActionResult> PutProduct(int id, Product product)
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> PutProduct(Guid id, Product product)
     {
         if (id != product.Id) return BadRequest();
         _context.Entry(product).State = EntityState.Modified;
@@ -39,8 +75,8 @@ public class ProductsController(ApplicationDbContext context) : ControllerBase
         return NoContent();
     }
 
-    [HttpDelete("{id:int}")]
-    public async Task<IActionResult> DeleteProduct(int id)
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteProduct(Guid id)
     {
         var product = await _context.Products.FindAsync(id);
         if (product is null) return NotFound();

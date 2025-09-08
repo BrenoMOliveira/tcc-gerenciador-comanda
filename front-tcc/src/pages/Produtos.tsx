@@ -1,50 +1,40 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Search, Edit, Trash2 } from "lucide-react";
+import { fetchProducts } from "@/lib/api";
 
-const mockProducts = [
-  { 
-    id: 1, 
-    nome: "Tomates", 
-    categoria: "Complementos", 
-    preco: "R$ 8,50", 
-    estoque: 10, 
-    status: "Em estoque" 
-  },
-  { 
-    id: 2, 
-    nome: "Frango", 
-    categoria: "Carnes", 
-    preco: "R$ 25,00", 
-    estoque: 5, 
-    status: "Em estoque" 
-  },
-  { 
-    id: 3, 
-    nome: "Coca", 
-    categoria: "Bebidas", 
-    preco: "R$ 6,00", 
-    estoque: 0, 
-    status: "Fora de estoque" 
-  },
-];
+interface Product {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  stockQuantity: number;
+  availability: "EmEstoque" | "BaixoEstoque" | "ForaDeEstoque";
+}
 
 export const Produtos = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [stockFilter, setStockFilter] = useState("");
+  const [products, setProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    fetchProducts()
+      .then(setProducts)
+      .catch((err) => console.error("Erro ao buscar produtos", err));
+  }, []);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "Em estoque":
+      case "EmEstoque":
         return <Badge className="status-success">Em estoque</Badge>;
-      case "Baixo estoque":
+      case "BaixoEstoque":
         return <Badge className="status-warning">Baixo estoque</Badge>;
-      case "Fora de estoque":
+      case "ForaDeEstoque":
         return <Badge className="status-error">Fora de estoque</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
@@ -134,13 +124,20 @@ export const Produtos = () => {
                 </tr>
               </thead>
               <tbody>
-                {mockProducts.map((product) => (
+                {products.map((product) => (
                   <tr key={product.id} className="border-b border-border hover:bg-muted/50">
-                    <td className="py-4 px-4 font-medium">{product.nome}</td>
-                    <td className="py-4 px-4 text-primary">{product.categoria}</td>
-                    <td className="py-4 px-4">{product.preco}</td>
-                    <td className="py-4 px-4">{product.estoque} uni</td>
-                    <td className="py-4 px-4">{getStatusBadge(product.status)}</td>
+                    <td className="py-4 px-4 font-medium">{product.name}</td>
+                    <td className="py-4 px-4 text-primary">{product.category}</td>
+                    <td className="py-4 px-4">
+                      {product.price.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </td>
+                    <td className="py-4 px-4">{product.stockQuantity} uni</td>
+                    <td className="py-4 px-4">
+                      {getStatusBadge(product.availability)}
+                    </td>
                     <td className="py-4 px-4">
                       <div className="flex gap-2">
                         <Button variant="ghost" size="sm" className="text-primary hover:text-primary-hover">
@@ -161,13 +158,13 @@ export const Produtos = () => {
 
       {/* Products Cards - Mobile */}
       <div className="md:hidden space-y-4">
-        {mockProducts.map((product) => (
+        {products.map((product) => (
           <Card key={product.id} className="dashboard-card">
             <CardContent className="p-4">
               <div className="flex justify-between items-start mb-3">
                 <div>
-                  <h3 className="font-medium text-lg">{product.nome}</h3>
-                  <p className="text-primary text-sm">{product.categoria}</p>
+                  <h3 className="font-medium text-lg">{product.name}</h3>
+                  <p className="text-primary text-sm">{product.category}</p>
                 </div>
                 <div className="flex gap-2">
                   <Button variant="ghost" size="sm" className="text-primary hover:text-primary-hover">
@@ -181,15 +178,20 @@ export const Produtos = () => {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">Preço:</span>
-                  <p className="font-medium">{product.preco}</p>
+                  <p className="font-medium">
+                    {product.price.toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    })}
+                  </p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Estoque:</span>
-                  <p className="font-medium">{product.estoque} uni</p>
+                  <p className="font-medium">{product.stockQuantity} uni</p>
                 </div>
               </div>
               <div className="mt-3">
-                {getStatusBadge(product.status)}
+                {getStatusBadge(product.availability)}
               </div>
             </CardContent>
           </Card>
