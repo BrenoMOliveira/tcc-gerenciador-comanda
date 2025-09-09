@@ -1,74 +1,104 @@
-import { useState } from "react";
-
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Edit, Trash2 } from "lucide-react";
+import { fetchEmployees, fetchCargos, createEmployee, updateEmployee, deleteEmployee } from "@/lib/api";
 
-const mockEmployees = [
-  { 
-    id: 1, 
-    nome: "João Silva", 
-    cargo: "Gerente", 
-    email: "joao@restaurante.com",
-    telefone: "(11) 99999-9999",
-    status: "Ativo" 
-  },
-  { 
-    id: 2, 
-    nome: "Maria Santos", 
-    cargo: "Garçom", 
-    email: "maria@restaurante.com",
-    telefone: "(11) 88888-8888",
-    status: "Ativo" 
-  },
-  { 
-    id: 3, 
-    nome: "Pedro Costa", 
-    cargo: "Caixa", 
-    email: "pedro@restaurante.com",
-    telefone: "(11) 77777-7777",
-    status: "Inativo" 
-  },
-];
+interface Employee {
+  id: string;
+  nome: string;
+  cpf: string;
+  tipo: string;
+  cargoid: number;
+  status: number;
+}
+
+interface Cargo {
+  id: number;
+  nome: string;
+}
 
 export const Funcionarios = () => {
-  const [employees, setEmployees] = useState(mockEmployees);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [cargos, setCargos] = useState<Cargo[]>([]);
   const [open, setOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [newEmployee, setNewEmployee] = useState({
     nome: "",
     cpf: "",
     senha: "",
     tipo: "",
+    cargoid: "",
   });
+  const [editingEmployee, setEditingEmployee] = useState<
+    (Employee & { senha?: string }) | null
+  >(null);
 
-  const handleAddEmployee = (e: React.FormEvent) => {
-    e.preventDefault();
-    const nextId = employees.length + 1;
-    setEmployees([
-      ...employees,
-      {
-        id: nextId,
-        nome: newEmployee.nome,
-        cargo: newEmployee.tipo,
-        email: "",
-        telefone: "",
-        status: "Ativo",
-      },
-    ]);
-    setNewEmployee({ nome: "", cpf: "", senha: "", tipo: "" });
-    setOpen(false);
+  useEffect(() => {
+    fetchEmployees().then(setEmployees).catch(console.error);
+    fetchCargos().then(setCargos).catch(console.error);
+  }, []);
+
+  const handleAddEmployee = async (e: React.FormEvent) => {
+  e.preventDefault();
+  try {
+    const created = await createEmployee({
+      nome: newEmployee.nome,
+      cpf: newEmployee.cpf,
+      senha: newEmployee.senha,
+      tipo: cargos.find(c => c.id === Number(newEmployee.cargoid))?.nome ?? "",
+      cargoid: Number(newEmployee.cargoid),
+    });
+    setEmployees((prev) => [...prev, created]);
+    setNewEmployee({ nome: "", cpf: "", senha: "", tipo: "", cargoid: "" });
+      setOpen(false);
+    } catch (err) {
+      console.error("Erro ao adicionar funcionário", err);
+    }
   };
 
-  const getStatusBadge = (status: string) => {
+  const handleUpdateEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEmployee) return;
+    try {
+      await updateEmployee(editingEmployee.id, {
+        id: editingEmployee.id,
+        nome: editingEmployee.nome,
+        cpf: editingEmployee.cpf,
+        senha: editingEmployee.senha,
+        tipo: cargos.find(c => c.id === Number(editingEmployee.cargoid))?.nome ?? "",
+        cargoid: editingEmployee.cargoid,
+        status: editingEmployee.status,
+      });
+      setEmployees((prev) =>
+        prev.map((emp) => (emp.id === editingEmployee.id ? editingEmployee : emp))
+      );
+      setEditOpen(false);
+      setEditingEmployee(null);
+    } catch (err) {
+      console.error("Erro ao atualizar funcionário", err);
+    }
+  };
+
+  const handleDeleteEmployee = async (id: string) => {
+    try {
+      await deleteEmployee(id);
+      setEmployees((prev) => prev.filter((emp) => emp.id !== id));
+    } catch (err) {
+      console.error("Erro ao deletar funcionário", err);
+    }
+  };
+
+  const getStatusBadge = (status: number) => {
     switch (status) {
-      case "Ativo":
+      case 1:
         return <Badge className="status-success">Ativo</Badge>;
-      case "Inativo":
+      case 0:
         return <Badge className="status-error">Inativo</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
@@ -129,16 +159,18 @@ export const Funcionarios = () => {
                 <Label htmlFor="tipo">Tipo</Label>
                 <Select
                   onValueChange={(value) =>
-                    setNewEmployee({ ...newEmployee, tipo: value })
+                    setNewEmployee({ ...newEmployee, cargoid: value })
                   }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione o tipo" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Gerente">Gerente</SelectItem>
-                    <SelectItem value="Garçom">Garçom</SelectItem>
-                    <SelectItem value="Caixa">Caixa</SelectItem>
+                    {cargos.map((cargo) => (
+                      <SelectItem key={cargo.id} value={cargo.id.toString()}>
+                        {cargo.nome}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -179,17 +211,35 @@ export const Funcionarios = () => {
                 </tr>
               </thead>
               <tbody>
-                 {employees.map((employee) => (
-                  <tr key={employee.id} className="border-b border-border hover:bg-muted/50">
+                {employees.map((employee) => (
+                  <tr
+                    key={employee.id}
+                    className="border-b border-border hover:bg-muted/50"
+                  >
                     <td className="py-4 px-4 font-medium">{employee.nome}</td>
-                    <td className="py-4 px-4 text-primary">{employee.cargo}</td>
-                    <td className="py-4 px-4">{getStatusBadge(employee.status)}</td>
+                    <td className="py-4 px-4 text-primary">{employee.tipo}</td>
+                    <td className="py-4 px-4">
+                      {getStatusBadge(employee.status)}
+                    </td>
                     <td className="py-4 px-4">
                       <div className="flex gap-2">
-                        <Button variant="ghost" size="sm" className="text-primary hover:text-primary-hover">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-primary hover:text-primary-hover"
+                          onClick={() => {
+                            setEditingEmployee({ ...employee, senha: "" });
+                            setEditOpen(true);
+                          }}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => handleDeleteEmployee(employee.id)}
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -201,6 +251,101 @@ export const Funcionarios = () => {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Funcionário</DialogTitle>
+          </DialogHeader>
+          {editingEmployee && (
+            <form onSubmit={handleUpdateEmployee} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-nome">Nome</Label>
+                <Input
+                  id="edit-nome"
+                  value={editingEmployee.nome}
+                  onChange={(e) =>
+                    setEditingEmployee({ ...editingEmployee, nome: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-cpf">CPF</Label>
+                <Input
+                  id="edit-cpf"
+                  value={editingEmployee.cpf}
+                  onChange={(e) =>
+                    setEditingEmployee({ ...editingEmployee, cpf: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-senha">Senha</Label>
+                <Input
+                  id="edit-senha"
+                  type="password"
+                  value={editingEmployee.senha}
+                  onChange={(e) =>
+                    setEditingEmployee({ ...editingEmployee, senha: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-tipo">Tipo</Label>
+                <Select
+                  value={editingEmployee.cargoid.toString()}
+                  onValueChange={(value) =>
+                    setEditingEmployee({
+                      ...editingEmployee,
+                      cargoid: Number(value),
+                      tipo: cargos.find((c) => c.id === Number(value))?.nome || "",
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cargos.map((cargo) => (
+                      <SelectItem key={cargo.id} value={cargo.id.toString()}>
+                        {cargo.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-status">Status</Label>
+                <Select
+                  value={editingEmployee.status.toString()}
+                  onValueChange={(value) =>
+                    setEditingEmployee({
+                      ...editingEmployee,
+                      status: Number(value),
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">Ativo</SelectItem>
+                    <SelectItem value="0">Inativo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="submit"
+                  className="bg-gradient-primary hover:bg-primary-hover text-primary-foreground"
+                >
+                  Salvar
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
