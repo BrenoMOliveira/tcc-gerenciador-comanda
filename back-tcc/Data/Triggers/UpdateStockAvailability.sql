@@ -1,0 +1,19 @@
+--CREATE OR REPLACE FUNCTION update_disponibilidadeid()
+--RETURNS TRIGGER AS $$
+--BEGIN
+--  IF NEW.quantidade = 0 THEN
+--    NEW.disponibilidadeid := 0;
+--  ELSIF NEW.quantidade <= NEW.minimoalerta THEN
+--    NEW.disponibilidadeid := 1;
+--  ELSE
+--    NEW.disponibilidadeid := 2;
+--  END IF;
+--  RETURN NEW;
+--END;
+--$$ LANGUAGE plpgsql;
+
+--DROP TRIGGER IF EXISTS trg_update_disponibilidadeid ON estoque;
+--CREATE TRIGGER trg_update_disponibilidadeid
+--BEFORE INSERT OR UPDATE ON estoque
+--FOR EACH ROW
+--EXECUTE FUNCTION update_disponibilidadeid();

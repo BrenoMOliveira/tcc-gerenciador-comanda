@@ -15,5 +15,8 @@ public class Stock
 
     public int minimoalerta { get; set; }
 
+    [Column("disponibilidadeid")]
+    public int disponibilidadeid { get; set; }
+
     public DateTime atualizadoem { get; set; }
 }

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace back_tcc.Models;
 
@@ -19,8 +20,12 @@ public class Product
     [Column("nome"), Required]
     public string Name { get; set; } = string.Empty;
 
-    [Column("categoria"), Required]
-    public string Category { get; set; } = string.Empty;
+    [Column("categoriaid"), Required]
+    public Guid CategoryProductId { get; set; }
+
+    [NotMapped]
+    [JsonPropertyName("category")]
+    public string CategoryName { get; set; } = string.Empty;
 
     [Column("preco"), Range(0, double.MaxValue)]
     public decimal Price { get; set; }
@@ -32,5 +37,8 @@ public class Product
     public int StockQuantity { get; set; }
 
     [NotMapped]
-    public ProductAvailability Availability { get; set; }
+    public int MinimoAlerta { get; set; }
+
+    [NotMapped]
+    public string Availability { get; set; } = string.Empty;
 }
