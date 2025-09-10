@@ -7,9 +7,12 @@ export interface Pedido {
 
 export interface Comanda {
   id: string;
+  numero: number;
   tipo: string;
   status: string;
+  nome_cliente?: string;
   mesaNum?: number;
+  criadoem?: string;
   pedidos?: Pedido[];
 }
 
@@ -18,4 +21,5 @@ export interface Mesa {
   numero: number;
   status: string;
   comandaId?: string;
+  comanda?: Comanda;
 }

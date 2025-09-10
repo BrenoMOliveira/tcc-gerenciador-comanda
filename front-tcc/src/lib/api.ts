@@ -166,7 +166,15 @@ export async function fetchComanda(id: string) {
   return res.json();
 }
 
-export async function createComanda(data: { tipo: string; mesaNum?: number; criadoPor: string }) {
+export async function fetchMesa(id: string) {
+  const res = await authFetch(`${API_URL}/api/mesas/${id}`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch mesa");
+  }
+  return res.json();
+}
+
+export async function createComanda(data: { tipo: string; nome_cliente: string; cliente_id?: string; mesaNum?: number; criadoPor: string }) {
   const res = await authFetch(`${API_URL}/api/comandas`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -174,6 +182,16 @@ export async function createComanda(data: { tipo: string; mesaNum?: number; cria
   });
   if (!res.ok) {
     throw new Error("Failed to create comanda");
+  }
+  return res.json();
+}
+
+export async function createMesaComanda(mesaId: string) {
+  const res = await authFetch(`${API_URL}/api/mesas/${mesaId}/comandas`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    throw new Error("Failed to create comanda for mesa");
   }
   return res.json();
 }

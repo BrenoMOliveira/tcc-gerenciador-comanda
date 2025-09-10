@@ -19,5 +19,8 @@ namespace back_tcc.Models
 
         [System.ComponentModel.DataAnnotations.Schema.NotMapped]
         public Guid? comandaid { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+        public Comanda? comanda { get; set; }
     }
 }

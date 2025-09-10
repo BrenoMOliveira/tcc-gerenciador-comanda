@@ -7,11 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Mesa, Comanda } from "./../types";
+import { Mesa, Comanda } from "@/types";
+import { Input } from "@/components/ui/input";
 
 export const Comandas = () => {
   const [activeTab, setActiveTab] = useState("mesas");
   const [tipoNovo, setTipoNovo] = useState("balcao");
+  const [clienteNovo, setClienteNovo] = useState("");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -19,6 +21,7 @@ export const Comandas = () => {
     queryKey: ["mesas"],
     queryFn: fetchMesas,
     enabled: activeTab === "mesas",
+    refetchInterval: activeTab === "mesas" ? 2000 : false,
   });
 
   const { data: comandas } = useQuery<Comanda[]>({
@@ -60,7 +63,21 @@ export const Comandas = () => {
                   <SelectItem value="entrega">Entrega</SelectItem>
                 </SelectContent>
               </Select>
-              <Button onClick={() => mutation.mutate({ tipo: tipoNovo, criadoPor: "00000000-0000-0000-0000-000000000000" })}>
+              <Input
+                placeholder="Nome do cliente"
+                value={clienteNovo}
+                onChange={(e) => setClienteNovo(e.target.value)}
+              />
+              <Button
+                disabled={!clienteNovo.trim()}
+                onClick={() =>
+                  mutation.mutate({
+                    tipo: tipoNovo,
+                    nome_cliente: clienteNovo,
+                    criadoPor: "00000000-0000-0000-0000-000000000000",
+                  })
+                }
+              >
                 Criar
               </Button>
             </div>
@@ -86,7 +103,7 @@ export const Comandas = () => {
               <div
                 key={mesa.id}
                 className="p-4 border rounded-lg cursor-pointer hover:bg-muted/50"
-                onClick={() => mesa.comandaId && navigate(`/comandas/${mesa.comandaId}`)}
+                onClick={() => navigate(`/comandas/mesas/${mesa.id}`)}
               >
                 <div className="flex justify-between">
                   <span className="font-medium">Mesa {mesa.numero}</span>
@@ -102,7 +119,14 @@ export const Comandas = () => {
               >
                 <div className="flex justify-between">
                   <span className="font-medium">
-                    {c.tipo === "balcao" ? `Balcão ${c.id.slice(0,8)}` : c.tipo === "entrega" ? `Entrega ${c.id.slice(0,8)}` : `Mesa ${c.mesaNum}`}
+                    <span className="font-medium">
+                      {c.nome_cliente ? `${c.nome_cliente} - ` : ""}
+                      {c.tipo === "balcao"
+                        ? `Balcão #${c.numero}`
+                        : c.tipo === "entrega"
+                        ? `Entrega #${c.numero}`
+                        : `Mesa ${c.mesaNum}`}
+                    </span>
                   </span>
                   <span className="text-sm">{c.status}</span>
                 </div>

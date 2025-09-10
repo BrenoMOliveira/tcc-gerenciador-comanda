@@ -11,11 +11,20 @@ namespace back_tcc.Models
         [Key]
         public Guid id { get; set; }
 
+        [Column("numero_pedido")]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public int numero { get; set; }
+
         [Required]
         public string tipo { get; set; } = string.Empty; // Mesa, Balcao, Entrega
 
         [Required]
         public string status { get; set; } = "Aberta"; // Aberta, Fechada, Aguardando Pagamento
+
+        public string? nome_cliente { get; set; }
+
+        [Column("cliente_id")]
+        public Guid? cliente_id { get; set; }
 
         public int? mesanum { get; set; }
 
