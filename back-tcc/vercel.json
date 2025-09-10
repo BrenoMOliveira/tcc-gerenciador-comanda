@@ -2,14 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "back-tcc/Controllers/*.cs",
-      "use": "@vercel/csharp"
+      "src": "back-tcc/back-tcc.csproj",
+      "use": "@vercel/dotnet"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/back-tcc/Controllers/$1.cs"
+      "dest": "back-tcc/back-tcc.csproj"
     }
   ]
 }
