@@ -40,7 +40,7 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
                 value={cpf}
                 onChange={handleCpfChange}
                 className="form-input"
-                pattern="\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2}"
+                //pattern="\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2}"
                 required
               />
             </div>

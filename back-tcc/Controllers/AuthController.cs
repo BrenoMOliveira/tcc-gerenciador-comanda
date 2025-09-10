@@ -1,6 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -25,7 +24,7 @@ public class AuthController(ApplicationDbContext context, IConfiguration configu
             return Unauthorized();
 
         var handler = new JwtSecurityTokenHandler();
-        var key = Encoding.UTF8.GetBytes(_config["Jwt:Key"]!);
+        var key = Convert.FromBase64String(_config["Jwt:Key"]!);
 
         var descriptor = new SecurityTokenDescriptor
         {

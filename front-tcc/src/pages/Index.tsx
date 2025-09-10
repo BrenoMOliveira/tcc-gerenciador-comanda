@@ -21,7 +21,7 @@ const Index = () => {
       const res = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cpf, senha: password }),
+        body: JSON.stringify({ cpf: cpf.replace(/\D/g, ""), senha: password }),
       });
       if (!res.ok) throw new Error("Login inválido");
       const data = await res.json();
