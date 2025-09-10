@@ -138,3 +138,40 @@ export async function deleteProduct(id: string) {
     throw new Error("Failed to delete product");
   }
 }
+
+export async function fetchMesas() {
+  const res = await fetch(`${API_URL}/api/mesas`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch mesas");
+  }
+  return res.json();
+}
+
+export async function fetchComandas(tipo?: string) {
+  const query = tipo ? `?tipo=${tipo}` : "";
+  const res = await fetch(`${API_URL}/api/comandas${query}`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch comandas");
+  }
+  return res.json();
+}
+
+export async function fetchComanda(id: string) {
+  const res = await fetch(`${API_URL}/api/comandas/${id}`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch comanda");
+  }
+  return res.json();
+}
+
+export async function createComanda(data: { tipo: string; mesaNum?: number; criadoPor: string }) {
+  const res = await fetch(`${API_URL}/api/comandas`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to create comanda");
+  }
+  return res.json();
+}

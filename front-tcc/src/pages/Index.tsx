@@ -7,10 +7,11 @@ import { Comandas } from "./Comandas";
 import { Funcionarios } from "./Funcionarios";
 import { Configuracoes } from "./Configuracoes";
 import { useToast } from "@/hooks/use-toast";
+import { Routes, Route } from "react-router-dom";
+import ComandaDetalhe from "./ComandaDetalhe";
 
 const Index = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentPage, setCurrentPage] = useState("dashboard");
   const { toast } = useToast();
 
   const handleLogin = (email: string, password: string) => {
@@ -26,28 +27,10 @@ const Index = () => {
 
   const handleLogout = () => {
     setIsLoggedIn(false);
-    setCurrentPage("dashboard");
     toast({
       title: "Logout realizado",
       description: "Até logo!",
     });
-  };
-
-  const renderCurrentPage = () => {
-    switch (currentPage) {
-      case "dashboard":
-        return <Dashboard />;
-      case "produtos":
-        return <Produtos />;
-      case "comandas":
-        return <Comandas />;
-      case "funcionarios":
-        return <Funcionarios />;
-      case "configuracoes":
-        return <Configuracoes />;
-      default:
-        return <Dashboard />;
-    }
   };
 
   if (!isLoggedIn) {
@@ -56,13 +39,16 @@ const Index = () => {
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
-      <Sidebar 
-        currentPage={currentPage} 
-        onPageChange={setCurrentPage}
-        onLogout={handleLogout}
-      />
+      <Sidebar onLogout={handleLogout} />
       <main className="flex-1 overflow-y-auto lg:ml-0 pt-16 lg:pt-0">
-        {renderCurrentPage()}
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/produtos" element={<Produtos />} />
+          <Route path="/comandas" element={<Comandas />} />
+          <Route path="/comandas/:id" element={<ComandaDetalhe />} />
+          <Route path="/funcionarios" element={<Funcionarios />} />
+          <Route path="/configuracoes" element={<Configuracoes />} />
+        </Routes>
       </main>
     </div>
   );
