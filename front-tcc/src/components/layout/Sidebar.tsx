@@ -99,7 +99,7 @@ export const Sidebar = ({ currentPage, onPageChange, onLogout }: SidebarProps) =
       </div>
 
       {/* Desktop Sidebar */}
-      <div className="hidden lg:flex w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex-col">
+      <div className="hidden lg:flex h-full w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex-col">
         <SidebarContent 
           currentPage={currentPage} 
           onPageChange={onPageChange} 

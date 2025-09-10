@@ -106,7 +106,7 @@ export const Funcionarios = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2">Funcionários</h1>
@@ -192,7 +192,7 @@ export const Funcionarios = () => {
           <CardTitle>Lista de Funcionários</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          <div className="overflow-auto max-h-[60vh]">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border">
