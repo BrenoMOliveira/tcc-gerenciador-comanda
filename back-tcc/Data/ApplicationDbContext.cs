@@ -12,6 +12,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<CargoUsuario> CargosUsuario => Set<CargoUsuario>();
     public DbSet<CategoryProduct> CategoryProducts => Set<CategoryProduct>();
     public DbSet<AvailabilityProduct> AvailabilityProducts => Set<AvailabilityProduct>();
+    public DbSet<Mesa> Mesas => Set<Mesa>();
+    public DbSet<Comanda> Comandas => Set<Comanda>();
+    public DbSet<Pedido> Pedidos => Set<Pedido>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
