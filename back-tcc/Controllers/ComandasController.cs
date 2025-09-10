@@ -4,13 +4,16 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 using back_tcc.Data;
 using back_tcc.Models;
+using back_tcc.Extensions;
 
 namespace back_tcc.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class ComandasController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -47,6 +50,9 @@ namespace back_tcc.Controllers
         [HttpPost]
         public async Task<ActionResult<Comanda>> CreateComanda(Comanda comanda)
         {
+            var userId = HttpContext.GetUserId();
+            if (userId is null) return Unauthorized();
+            comanda.criadopor = userId.Value;
             _context.Comanda.Add(comanda);
             await _context.SaveChangesAsync();
             return CreatedAtAction(nameof(GetComanda), new { id = comanda.id }, comanda);

@@ -4,28 +4,45 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Dashboard } from "./Dashboard";
 import { Produtos } from "./Produtos";
 import { Comandas } from "./Comandas";
+import { ComandaDetalhe } from "./ComandaDetalhe";
 import { Funcionarios } from "./Funcionarios";
 import { Configuracoes } from "./Configuracoes";
 import { useToast } from "@/hooks/use-toast";
 import { Routes, Route } from "react-router-dom";
-import ComandaDetalhe from "./ComandaDetalhe";
+import { API_URL } from "@/lib/api";
+import { saveToken, clearToken } from "@/lib/auth";
 
 const Index = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const { toast } = useToast();
 
-  const handleLogin = (email: string, password: string) => {
-    // Simple mock authentication
-    if (email && password) {
+ const handleLogin = async (cpf: string, password: string) => {
+    try {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cpf, senha: password }),
+      });
+      if (!res.ok) throw new Error("Login inválido");
+      const data = await res.json();
+      saveToken(data.token);
       setIsLoggedIn(true);
       toast({
         title: "Login realizado com sucesso!",
         description: "Bem-vindo ao sistema de gestão.",
       });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Erro no login";
+      toast({
+        title: "Erro no login",
+        description: message,
+        variant: "destructive",
+      });
     }
   };
 
   const handleLogout = () => {
+    clearToken();
     setIsLoggedIn(false);
     toast({
       title: "Logout realizado",
