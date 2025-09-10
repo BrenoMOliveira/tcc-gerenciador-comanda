@@ -13,7 +13,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<CategoryProduct> CategoryProducts => Set<CategoryProduct>();
     public DbSet<AvailabilityProduct> AvailabilityProducts => Set<AvailabilityProduct>();
     public DbSet<Mesa> Mesas => Set<Mesa>();
-    public DbSet<Comanda> Comandas => Set<Comanda>();
+    public DbSet<Comanda> Comanda => Set<Comanda>();
     public DbSet<Pedido> Pedidos => Set<Pedido>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

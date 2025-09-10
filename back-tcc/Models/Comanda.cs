@@ -1,28 +1,39 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace back_tcc.Models
 {
+    [Table("comanda")]
     public class Comanda
     {
         [Key]
-        public Guid Id { get; set; }
+        public Guid id { get; set; }
+
+        [Column("numero_pedido")]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public int numero { get; set; }
 
         [Required]
-        public string Tipo { get; set; } = string.Empty; // Mesa, Balcao, Entrega
+        public string tipo { get; set; } = string.Empty; // Mesa, Balcao, Entrega
 
         [Required]
-        public string Status { get; set; } = "Aberta"; // Aberta, Fechada, Aguardando Pagamento
+        public string status { get; set; } = "Aberta"; // Aberta, Fechada, Aguardando Pagamento
 
-        public int? MesaNum { get; set; }
+        public string? nome_cliente { get; set; }
 
-        public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
+        [Column("cliente_id")]
+        public Guid? cliente_id { get; set; }
 
-        public DateTime? FechadoEm { get; set; }
+        public int? mesanum { get; set; }
 
-        public Guid CriadoPor { get; set; }
+        public DateTime criadoem { get; set; } = DateTime.UtcNow;
 
-        public List<Pedido> Pedidos { get; set; } = new();
+        public DateTime? fechadoem { get; set; }
+
+        public Guid criadopor { get; set; }
+
+        public List<Pedido> pedidos { get; set; } = new();
     }
 }

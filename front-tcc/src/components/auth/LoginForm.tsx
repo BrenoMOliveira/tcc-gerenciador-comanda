@@ -4,17 +4,24 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface LoginFormProps {
-  onLogin: (email: string, password: string) => void;
+  onLogin: (cpf: string, password: string) => void;
 }
 
 export const LoginForm = ({ onLogin }: LoginFormProps) => {
-  const [email, setEmail] = useState("");
+  const [cpf, setCpf] = useState("");
   const [password, setPassword] = useState("");
-
+  const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, "").slice(0, 11);
+    value = value.replace(/(\d{3})(\d)/, "$1.$2");
+    value = value.replace(/(\d{3})(\d)/, "$1.$2");
+    value = value.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+    setCpf(value);
+  };
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin(email, password);
+    onLogin(cpf, password);
   };
+  const isPasswordValid = password.length >= 8;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -28,11 +35,12 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <Input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                placeholder="CPF"
+                value={cpf}
+                onChange={handleCpfChange}
                 className="form-input"
+                //pattern="\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2}"
                 required
               />
             </div>
@@ -44,7 +52,13 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
                 onChange={(e) => setPassword(e.target.value)}
                 className="form-input"
                 required
+                minLength={8}
               />
+              {!isPasswordValid && (
+                <p className="text-sm text-red-500 mt-1">
+                  Senha deve ter no mínimo 8 caracteres
+                </p>
+              )}
             </div>
             <div className="text-center">
               <button
@@ -56,6 +70,7 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
             </div>
             <Button
               type="submit"
+              disabled={!isPasswordValid}
               className="w-full bg-gradient-primary hover:bg-primary-hover text-primary-foreground font-medium py-3"
             >
               Entrar

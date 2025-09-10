@@ -1,15 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import {
-  LayoutDashboard,
-  Package,
-  ClipboardList,
-  Users,
-  Settings,
-  LogOut,
-  Menu
-} from "lucide-react";
+import { LayoutDashboard, Package, ClipboardList, Users, Settings, LogOut, Menu } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 interface SidebarProps {

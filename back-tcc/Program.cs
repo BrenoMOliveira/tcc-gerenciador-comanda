@@ -1,6 +1,8 @@
 using back_tcc.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +15,23 @@ builder.Services
     .AddControllers()
     .AddJsonOptions(options =>
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
+var jwtSettings = builder.Configuration.GetSection("Jwt");
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtSettings["Issuer"],
+            ValidAudience = jwtSettings["Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Convert.FromBase64String(jwtSettings["Key"]!))
+        };
+    });
+builder.Services.AddAuthorization();
 
 builder.Services.AddCors(options =>
 {
@@ -33,6 +52,9 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseCors("AllowFrontend");
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 

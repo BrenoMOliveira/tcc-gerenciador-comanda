@@ -1,3 +1,5 @@
+import { authFetch } from "./auth";
+
 export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5125";
 
 export async function fetchProducts(params?: {
@@ -9,7 +11,7 @@ export async function fetchProducts(params?: {
   if (params?.search) query.append("search", params.search);
   if (params?.categoryId) query.append("categoryId", params.categoryId);
   if (params?.availabilityId) query.append("availabilityId", params.availabilityId);
-  const res = await fetch(
+  const res = await authFetch(
     `${API_URL}/api/products${query.toString() ? `?${query.toString()}` : ""}`
   );
   if (!res.ok) {
@@ -19,7 +21,7 @@ export async function fetchProducts(params?: {
 }
 
 export async function fetchCategories() {
-  const res = await fetch(`${API_URL}/api/categoryproducts`);
+  const res = await authFetch(`${API_URL}/api/categoryproducts`);
   if (!res.ok) {
     throw new Error("Failed to fetch categories");
   }
@@ -27,7 +29,7 @@ export async function fetchCategories() {
 }
 
 export async function fetchEmployees() {
-  const res = await fetch(`${API_URL}/api/usuarios`);
+  const res = await authFetch(`${API_URL}/api/usuarios`);
   if (!res.ok) {
     throw new Error("Failed to fetch employees");
   }
@@ -35,7 +37,7 @@ export async function fetchEmployees() {
 }
 
 export async function fetchCargos() {
-  const res = await fetch(`${API_URL}/api/cargos`);
+  const res = await authFetch(`${API_URL}/api/cargos`);
   if (!res.ok) {
     throw new Error("Failed to fetch cargos");
   }
@@ -49,7 +51,7 @@ export async function createEmployee(data: {
   tipo: string;
   cargoid: number;
 }) {
-  const res = await fetch(`${API_URL}/api/usuarios`, {
+  const res = await authFetch(`${API_URL}/api/usuarios`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -64,7 +66,7 @@ export async function updateEmployee(
   id: string,
   data: { id: string; nome: string; cpf: string; senha?: string; tipo: string, cargoid: number; status: number }
 ) {
-  const res = await fetch(`${API_URL}/api/usuarios/${id}`, {
+  const res = await authFetch(`${API_URL}/api/usuarios/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -80,7 +82,7 @@ export async function updateEmployee(
 }
 
 export async function deleteEmployee(id: string) {
-  const res = await fetch(`${API_URL}/api/usuarios/${id}`, {
+  const res = await authFetch(`${API_URL}/api/usuarios/${id}`, {
     method: "DELETE",
   });
   if (!res.ok) {
@@ -95,7 +97,7 @@ export async function createProduct(data: {
   stockQuantity: number;
   minimoAlerta: number;
 }) {
-  const res = await fetch(`${API_URL}/api/products`, {
+  const res = await authFetch(`${API_URL}/api/products`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -118,7 +120,7 @@ export async function updateProduct(
     minimoAlerta: number;
   }
 ) {
-  const res = await fetch(`${API_URL}/api/products/${id}`, {
+  const res = await authFetch(`${API_URL}/api/products/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -131,7 +133,7 @@ export async function updateProduct(
 }
 
 export async function deleteProduct(id: string) {
-  const res = await fetch(`${API_URL}/api/products/${id}`, {
+  const res = await authFetch(`${API_URL}/api/products/${id}`, {
     method: "DELETE",
   });
   if (!res.ok) {
@@ -140,7 +142,7 @@ export async function deleteProduct(id: string) {
 }
 
 export async function fetchMesas() {
-  const res = await fetch(`${API_URL}/api/mesas`);
+  const res = await authFetch(`${API_URL}/api/mesas`);
   if (!res.ok) {
     throw new Error("Failed to fetch mesas");
   }
@@ -149,7 +151,7 @@ export async function fetchMesas() {
 
 export async function fetchComandas(tipo?: string) {
   const query = tipo ? `?tipo=${tipo}` : "";
-  const res = await fetch(`${API_URL}/api/comandas${query}`);
+  const res = await authFetch(`${API_URL}/api/comandas${query}`);
   if (!res.ok) {
     throw new Error("Failed to fetch comandas");
   }
@@ -157,21 +159,39 @@ export async function fetchComandas(tipo?: string) {
 }
 
 export async function fetchComanda(id: string) {
-  const res = await fetch(`${API_URL}/api/comandas/${id}`);
+  const res = await authFetch(`${API_URL}/api/comandas/${id}`);
   if (!res.ok) {
     throw new Error("Failed to fetch comanda");
   }
   return res.json();
 }
 
-export async function createComanda(data: { tipo: string; mesaNum?: number; criadoPor: string }) {
-  const res = await fetch(`${API_URL}/api/comandas`, {
+export async function fetchMesa(id: string) {
+  const res = await authFetch(`${API_URL}/api/mesas/${id}`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch mesa");
+  }
+  return res.json();
+}
+
+export async function createComanda(data: { tipo: string; nome_cliente: string; cliente_id?: string; mesaNum?: number; criadoPor: string }) {
+  const res = await authFetch(`${API_URL}/api/comandas`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
   if (!res.ok) {
     throw new Error("Failed to create comanda");
+  }
+  return res.json();
+}
+
+export async function createMesaComanda(mesaId: string) {
+  const res = await authFetch(`${API_URL}/api/mesas/${mesaId}/comandas`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    throw new Error("Failed to create comanda for mesa");
   }
   return res.json();
 }
