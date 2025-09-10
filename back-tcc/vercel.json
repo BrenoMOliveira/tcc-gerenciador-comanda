@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "back-tcc/Controllers/*.cs",
+      "use": "@vercel/csharp"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/back-tcc/Controllers/$1.cs"
+    }
+  ]
+}
