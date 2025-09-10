@@ -22,7 +22,7 @@ namespace back_tcc.Controllers
         {
             _context.Pedidos.Add(pedido);
             await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(CreatePedido), new { id = pedido.Id }, pedido);
+            return CreatedAtAction(nameof(CreatePedido), new { id = pedido.id }, pedido);
         }
     }
 }

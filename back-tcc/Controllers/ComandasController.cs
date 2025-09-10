@@ -23,20 +23,20 @@ namespace back_tcc.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Comanda>>> GetComandas([FromQuery] string? tipo)
         {
-            var query = _context.Comandas.AsQueryable();
+            var query = _context.Comanda.AsQueryable();
             if (!string.IsNullOrEmpty(tipo))
             {
-                query = query.Where(c => c.Tipo.ToLower() == tipo.ToLower());
+                query = query.Where(c => c.tipo.ToLower() == tipo.ToLower());
             }
-            return await query.OrderByDescending(c => c.CriadoEm).ToListAsync();
+            return await query.OrderByDescending(c => c.criadoem).ToListAsync();
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<Comanda>> GetComanda(Guid id)
         {
-            var comanda = await _context.Comandas
-                .Include(c => c.Pedidos)
-                .FirstOrDefaultAsync(c => c.Id == id);
+            var comanda = await _context.Comanda
+                .Include(c => c.pedidos)
+                .FirstOrDefaultAsync(c => c.id == id);
             if (comanda == null)
             {
                 return NotFound();
@@ -47,9 +47,9 @@ namespace back_tcc.Controllers
         [HttpPost]
         public async Task<ActionResult<Comanda>> CreateComanda(Comanda comanda)
         {
-            _context.Comandas.Add(comanda);
+            _context.Comanda.Add(comanda);
             await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetComanda), new { id = comanda.Id }, comanda);
+            return CreatedAtAction(nameof(GetComanda), new { id = comanda.id }, comanda);
         }
     }
 }

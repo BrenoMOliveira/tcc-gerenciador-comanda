@@ -3,12 +3,13 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchComanda } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Comanda, Pedido } from "@/types";
 
-const ComandaDetalhe = () => {
+export const ComandaDetalhe = () => {
   const navigate = useNavigate();
   const { id } = useParams();
 
-  const { data } = useQuery({
+  const { data } = useQuery<Comanda>({
     queryKey: ["comanda", id],
     queryFn: () => fetchComanda(id as string),
     enabled: !!id,
@@ -33,7 +34,7 @@ const ComandaDetalhe = () => {
           </div>
           {data.pedidos?.length ? (
             <div className="space-y-2">
-              {data.pedidos.map((p: any) => (
+              {data.pedidos.map((p: Pedido) => (
                 <div
                   key={p.id}
                   className="flex justify-between border-b border-border py-1"

@@ -22,19 +22,19 @@ namespace back_tcc.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Mesa>>> GetMesas()
         {
-            var comandas = await _context.Comandas
-                .Where(c => c.Status != "Fechada" && c.MesaNum != null)
+            var comandas = await _context.Comanda
+                .Where(c => c.status != "Fechada" && c.mesanum != null)
                 .ToListAsync();
 
-            var mesas = await _context.Mesas.OrderBy(m => m.Numero).ToListAsync();
+            var mesas = await _context.Mesas.OrderBy(m => m.numero).ToListAsync();
 
             foreach (var mesa in mesas)
             {
-                var comanda = comandas.FirstOrDefault(c => c.MesaNum == mesa.Numero);
+                var comanda = comandas.FirstOrDefault(c => c.mesanum == mesa.numero);
                 if (comanda != null)
                 {
-                    mesa.ComandaId = comanda.Id;
-                    mesa.Status = comanda.Status == "Aberta" ? "Ocupada" : comanda.Status;
+                    mesa.comandaid = comanda.id;
+                    mesa.status = comanda.status == "Aberta" ? "Ocupada" : comanda.status;
                 }
             }
 

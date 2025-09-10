@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Mesa, Comanda } from "./../types";
 
 export const Comandas = () => {
   const [activeTab, setActiveTab] = useState("mesas");
@@ -14,13 +15,13 @@ export const Comandas = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const { data: mesas } = useQuery({
+  const { data: mesas } = useQuery<Mesa[]>({
     queryKey: ["mesas"],
     queryFn: fetchMesas,
     enabled: activeTab === "mesas",
   });
 
-  const { data: comandas } = useQuery({
+  const { data: comandas } = useQuery<Comanda[]>({
     queryKey: ["comandas", activeTab],
     queryFn: () => fetchComandas(activeTab === "mesas" ? undefined : activeTab),
     enabled: activeTab !== "mesas",
@@ -28,7 +29,7 @@ export const Comandas = () => {
 
   const mutation = useMutation({
     mutationFn: createComanda,
-    onSuccess: (data) => {
+    onSuccess: (data: Comanda) => {
       queryClient.invalidateQueries({ queryKey: ["comandas"] });
       navigate(`/comandas/${data.id}`);
     },
@@ -81,7 +82,7 @@ export const Comandas = () => {
         </CardHeader>
         <CardContent className="p-0">
           <div className="space-y-2 p-4">
-            {activeTab === "mesas" && mesas && mesas.map((mesa: any) => (
+            {activeTab === "mesas" && mesas && mesas.map((mesa: Mesa) => (
               <div
                 key={mesa.id}
                 className="p-4 border rounded-lg cursor-pointer hover:bg-muted/50"
@@ -93,7 +94,7 @@ export const Comandas = () => {
                 </div>
               </div>
             ))}
-            {activeTab !== "mesas" && comandas && comandas.map((c: any) => (
+            {activeTab !== "mesas" && comandas && comandas.map((c: Comanda) => (
               <div
                 key={c.id}
                 className="p-4 border rounded-lg cursor-pointer hover:bg-muted/50"

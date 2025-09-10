@@ -1,25 +1,27 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace back_tcc.Models
 {
+    [Table("pedido")]
     public class Pedido
     {
         [Key]
-        public Guid Id { get; set; }
+        public Guid id { get; set; }
 
         [Required]
-        public Guid ComandaId { get; set; }
+        public Guid comandaid { get; set; }
 
         [Required]
-        public Guid ProdutoId { get; set; }
+        public Guid produtoid { get; set; }
 
         [Required]
-        public int Quantidade { get; set; }
+        public int quantidade { get; set; }
 
         [Required]
-        public decimal PrecoUnit { get; set; }
+        public decimal precounit { get; set; }
 
-        public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
+        public DateTime criadoem { get; set; } = DateTime.UtcNow;
     }
 }
