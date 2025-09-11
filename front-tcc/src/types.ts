@@ -37,7 +37,7 @@ export interface Pagamento {
   id: string;
   comandaid: string;
   valorpago: number;
-  metodo: string;
+  formapagamento: string;
   pagamentoem?: string;
   subcomandaid?: string;
 }

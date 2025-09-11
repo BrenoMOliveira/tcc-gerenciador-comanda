@@ -160,13 +160,35 @@ export async function fetchComandas(tipo?: string) {
   return res.json();
 }
 
-function mapPedido(p: {
+interface PedidoApi {
   id: string;
   produtoid: string;
   quantidade: number;
   precounit: number;
   subcomandaid?: string;
-}): Pedido {
+}
+
+interface PagamentoApi {
+  id: string;
+  comandaid: string;
+  valorpago: number;
+  formapagamento: string;
+  pagamentoem?: string;
+  subcomandaid?: string;
+}
+
+interface SubComandaApi {
+  id: string;
+  comandaid: string;
+  nomeCliente?: string;
+  nome_cliente?: string;
+  status: string;
+  criadoem?: string;
+  pedidos?: PedidoApi[];
+  pagamentos?: PagamentoApi[];
+}
+
+function mapPedido(p: PedidoApi): Pedido {
   return {
     id: p.id,
     produtoId: p.produtoid,
@@ -176,18 +198,18 @@ function mapPedido(p: {
   };
 }
 
-function mapPagamento(p: any): Pagamento {
+function mapPagamento(p: PagamentoApi): Pagamento {
   return {
     id: p.id,
     comandaid: p.comandaid,
     valorpago: p.valorpago,
-    metodo: p.metodo,
+    formapagamento: p.formapagamento,
     pagamentoem: p.pagamentoem,
     subcomandaid: p.subcomandaid,
   };
 }
 
-function mapSubcomanda(s: any): SubComanda {
+function mapSubcomanda(s: SubComandaApi): SubComanda {
   return {
     id: s.id,
     comandaid: s.comandaid,
@@ -278,7 +300,7 @@ export async function addItemToComanda(
 export async function addPagamento(data: {
   comandaid: string;
   valorpago: number;
-  metodo: string;
+  formapagamento: string;
   subcomandaid?: string;
 }): Promise<Pagamento> {
   const res = await authFetch(`${API_URL}/api/pagamentos`, {

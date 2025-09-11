@@ -417,13 +417,14 @@ const productsQuery = useQuery<Product[]>({
           </DialogHeader>
           <div className="space-y-2">
             {Object.entries(
-              comanda?.pedidos?.reduce((acc: any, p: Pedido) => {
-                const key = p.produtoId;
-                if (!acc[key]) acc[key] = { quantidade: 0, preco: p.precoUnit };
-                acc[key].quantidade += p.quantidade;
-                return acc;
-              }, {}) || {}
-            ).map(([prodId, info]: any) => {
+              comanda?.pedidos?.reduce<Record<string, { quantidade: number; preco: number }>>(
+                (acc, p: Pedido) => {
+                  const key = p.produtoId;
+                  if (!acc[key]) acc[key] = { quantidade: 0, preco: p.precoUnit };
+                  acc[key].quantidade += p.quantidade;
+                  return acc;
+                },{}) || {}
+            ).map(([prodId, info]) => {
               const prodName =
                 allProductsQuery.data?.find((prod) => prod.id === prodId)?.name || prodId;
               const subtotal = info.preco * info.quantidade;
@@ -474,7 +475,7 @@ const productsQuery = useQuery<Product[]>({
                     await addPagamento({
                       comandaid: comanda.id,
                       valorpago: paymentValue,
-                      metodo: paymentMethod,
+                      formapagamento: paymentMethod,
                     });
                     setPaymentValue(0);
                     await refetch();
@@ -490,11 +491,11 @@ const productsQuery = useQuery<Product[]>({
               {comanda?.pagamentos?.map((p: Pagamento) => (
                 <div key={p.id} className="flex justify-between text-sm">
                   <span>
-                    {p.metodo} - R$ {p.valorpago.toFixed(2)}
+                    {p.formapagamento} - R$ {p.valorpago.toFixed(2)}
                   </span>
                   <span>
-                    {p.pagamentoem
-                      ? new Date(p.pagamentoem).toLocaleTimeString([], {
+                    {p.pagoem
+                      ? new Date(p.pagoem).toLocaleTimeString([], {
                           hour: "2-digit",
                           minute: "2-digit",
                         })
