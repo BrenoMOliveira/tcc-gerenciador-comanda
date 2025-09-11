@@ -48,6 +48,10 @@ namespace back_tcc.Controllers
             var comanda = await _context.Comanda
                 .Include(c => c.pedidos)
                 .Include(c => c.pagamentos)
+                .Include(c => c.subcomandas)
+                    .ThenInclude(s => s.pedidos)
+                .Include(c => c.subcomandas)
+                    .ThenInclude(s => s.pagamentos)
                 .FirstOrDefaultAsync(c => c.id == dto.comandaid);
             if (comanda == null) return NotFound("Comanda nao encontrada");
 
@@ -64,16 +68,45 @@ namespace back_tcc.Controllers
             _context.Pagamentos.Add(pagamento);
             comanda.pagamentos.Add(pagamento);
 
-            decimal totalComanda = comanda.pedidos.Sum(p => p.precounit * p.quantidade);
+            if (dto.subcomandaid.HasValue)
+            {
+                var sub = comanda.subcomandas.FirstOrDefault(s => s.id == dto.subcomandaid.Value);
+                if (sub == null) return NotFound("Subcomanda nao encontrada");
+                sub.pagamentos.Add(pagamento);
+                decimal totalSub = sub.pedidos.Sum(p => p.precounit * p.quantidade);
+                decimal pagoSub = sub.pagamentos.Sum(p => p.valorpago);
+                if (pagoSub >= totalSub)
+                {
+                    sub.status = "Fechada";
+                }
+            }
+
+            decimal totalComanda = comanda.pedidos.Sum(p => p.precounit * p.quantidade)
+                + comanda.subcomandas.Sum(s => s.pedidos.Sum(p => p.precounit * p.quantidade));
             decimal totalPago = comanda.pagamentos.Sum(p => p.valorpago);
-            if (totalPago >= totalComanda)
+
+            if (totalPago >= totalComanda && comanda.subcomandas.All(s => s.status == "Fechada"))
             {
                 comanda.status = "Fechada";
                 comanda.fechadoem = DateTime.UtcNow;
             }
-            else
+            else if (totalPago > 0)
             {
                 comanda.status = "Aguardando Pagamento";
+            }
+
+            if (comanda.mesanum.HasValue)
+            {
+                var mesa = await _context.Mesas.FirstOrDefaultAsync(m => m.numero == comanda.mesanum.Value);
+                if (mesa != null)
+                {
+                    mesa.status = comanda.status switch
+                    {
+                        "Fechada" => "Livre",
+                        "Aguardando Pagamento" => "Aguardando Pagamento",
+                        _ => "Ocupada"
+                    };
+                }
             }
 
             await _context.SaveChangesAsync();

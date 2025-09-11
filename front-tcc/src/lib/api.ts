@@ -1,8 +1,8 @@
 import { authFetch } from "./auth";
 import { Product, Comanda, Mesa, Pedido, Pagamento, SubComanda } from "@/types";
 
-export const API_URL = import.meta.env.VITE_API_URL || "https://back-tcc-production.up.railway.app";
-//export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5125";
+//export const API_URL = import.meta.env.VITE_API_URL || "https://back-tcc-production.up.railway.app";
+export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5125";
 
 export async function fetchProducts(params?: {
   search?: string;
@@ -204,7 +204,7 @@ function mapPagamento(p: PagamentoApi): Pagamento {
     comandaid: p.comandaid,
     valorpago: p.valorpago,
     formapagamento: p.formapagamento,
-    pagamentoem: p.pagamentoem,
+    pagoem: p.pagamentoem,
     subcomandaid: p.subcomandaid,
   };
 }
@@ -213,7 +213,7 @@ function mapSubcomanda(s: SubComandaApi): SubComanda {
   return {
     id: s.id,
     comandaid: s.comandaid,
-    nomeCliente: s.nomeCliente || s.nome_cliente,
+    nome_cliente: s.nomeCliente || s.nome_cliente,
     status: s.status,
     criadoem: s.criadoem,
     pedidos: s.pedidos?.map(mapPedido),
@@ -278,7 +278,7 @@ export async function createMesaComanda(mesaId: string) {
 
 export async function addItemToComanda(
   comandaId: string,
-  data: { produtoId: string; quantidade: number; precoUnit: number }
+  data: { produtoId: string; quantidade: number; precoUnit: number; subcomandaid?: string }
 ) {
   const res = await authFetch(`${API_URL}/api/pedidos`, {
     method: "POST",
@@ -288,6 +288,7 @@ export async function addItemToComanda(
       produtoid: data.produtoId,
       quantidade: data.quantidade,
       precounit: data.precoUnit,
+      subcomandaid: data.subcomandaid,
     }),
   });
   if (!res.ok) {
@@ -332,4 +333,18 @@ export async function createSubComandas(
     throw new Error(errorData.message || "Failed to create subcomandas");
   }
   return res.json();
+}
+
+export async function fetchSubComanda(
+  comandaId: string,
+  subId: string
+): Promise<SubComanda> {
+  const res = await authFetch(
+    `${API_URL}/api/comandas/${comandaId}/subcomandas/${subId}`
+  );
+  if (!res.ok) {
+    throw new Error("Failed to fetch subcomanda");
+  }
+  const data = await res.json();
+  return mapSubcomanda(data);
 }

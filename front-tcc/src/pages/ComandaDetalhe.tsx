@@ -1,9 +1,9 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { fetchComanda, fetchMesa, createMesaComanda, fetchProducts, fetchCategories, addItemToComanda, addPagamento, createSubComandas } from "@/lib/api";
+import { fetchComanda, fetchMesa, createMesaComanda, fetchProducts, fetchCategories, addItemToComanda, addPagamento, createSubComandas, fetchSubComanda } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Comanda, Pedido, Mesa, Product, Pagamento } from "@/types";
+import { Comanda, Pedido, Mesa, Product, Pagamento, SubComanda } from "@/types";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -15,14 +15,27 @@ interface Category {
 
 export const ComandaDetalhe = () => {
   const navigate = useNavigate();
-  const { id, mesaId } = useParams();
+  const { id, mesaId, subId } = useParams();
 
-  const isMesa = !!mesaId;
+  const isMesa = !!mesaId && !subId;
+  const isSub = !!subId;
 
   const { data, refetch } = useQuery<Comanda | Mesa>({
     queryKey: [isMesa ? "mesa" : "comanda", isMesa ? mesaId : id],
     queryFn: () => (isMesa ? fetchMesa(mesaId as string) : fetchComanda(id as string)),
-    enabled: isMesa ? !!mesaId : !!id,
+    enabled: !isSub && (isMesa ? !!mesaId : !!id),
+  });
+
+  const { data: subData, refetch: refetchSub } = useQuery<SubComanda>({
+    queryKey: ["subcomanda", id, subId],
+    queryFn: () => fetchSubComanda(id as string, subId as string),
+    enabled: isSub && !!id && !!subId,
+  });
+
+  const parentComandaQuery = useQuery<Comanda>({
+    queryKey: ["comanda", id],
+    queryFn: () => fetchComanda(id as string),
+    enabled: isSub && !!id,
   });
 
   const mutation = useMutation({
@@ -109,7 +122,9 @@ const productsQuery = useQuery<Product[]>({
   };
 
   const handleConfirmPedido = async () => {
-    const comandaData = isMesa
+    const comandaData = isSub
+      ? subData
+      : isMesa
       ? (data as Mesa).comanda
       : (data as Comanda);
     if (!comandaData) return;
@@ -119,25 +134,37 @@ const productsQuery = useQuery<Product[]>({
         for (const [prodId, qtd] of Object.entries(items)) {
           if (qtd > 0) {
             const prod = productsMap[prodId];
-            await addItemToComanda(comandaData.id, {
+            await addItemToComanda(isSub ? (id as string) : comandaData.id, {
               produtoId: prodId,
               quantidade: qtd,
               precoUnit: prod?.price || 0,
+              subcomandaid: isSub ? subId : undefined,
             });
           }
         }
       }
-      await refetch();
+      if (isSub) {
+        await refetchSub();
+        await parentComandaQuery.refetch();
+      } else {
+        await refetch();
+      }
       handleOpenChange(false);
     } catch (err) {
       console.error("Erro ao confirmar pedido", err);
     }
   };
 
-  if (!data) return null;
+  if (isSub && !subData) return null;
+  if (!isSub && !data) return null;
 
   const mesa = isMesa ? (data as Mesa) : undefined;
-  const comanda = isMesa ? mesa?.comanda : (data as Comanda);
+  const comanda = isSub
+    ? subData
+    : isMesa
+    ? mesa?.comanda
+    : (data as Comanda);
+  const parentComanda = isSub ? parentComandaQuery.data : undefined;
 
   const totalComanda =
     comanda?.pedidos?.reduce(
@@ -160,30 +187,44 @@ const productsQuery = useQuery<Product[]>({
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">Mesa vazia.</p>
-            <Button onClick={() => mutation.mutate()}>Novo Pedido</Button>
+            <Button onClick={() => mutation.mutate()}>Abrir Mesa</Button>
           </CardContent>
         </Card>
       ) : (
         <Card className="dashboard-card">
           <CardHeader>
             <CardTitle>
-              {comanda?.nome_cliente ? `${comanda.nome_cliente} - ` : ""}
-              {comanda?.tipo === "balcao"
-                ? `Balcão #${comanda?.numero}`
-                : comanda?.tipo === "entrega"
-                ? `Entrega #${comanda?.numero}`
-                : `Pedido #${comanda?.numero}`}
+              {isSub ? (
+                <>
+                  {subData?.nome_cliente ? `${subData.nome_cliente} - ` : ""}
+                  {parentComanda?.numero
+                    ? `Pedido #${parentComanda.numero}`
+                    : "Subcomanda"}
+                </>
+              ) : (
+                <>
+                  {comanda?.nome_cliente ? `${comanda.nome_cliente} - ` : ""}
+                  {comanda?.tipo === "balcao"
+                    ? `Balcão #${comanda?.numero}`
+                    : comanda?.tipo === "entrega"
+                    ? `Entrega #${comanda?.numero}`
+                    : `Pedido #${comanda?.numero}`}
+                </>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="text-sm">
               {mesa && <p>Mesa: {mesa.numero}</p>}
-              <p>Tipo: {comanda?.tipo}</p>
+              {!isSub && <p>Tipo: {comanda?.tipo}</p>}
               <p>Status: {comanda?.status}</p>
               {comanda?.criadoem && (
                 <p>
                   Criado em: {new Date(comanda.criadoem).toLocaleDateString()} {" "}
-                  {new Date(comanda.criadoem).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  {new Date(comanda.criadoem).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
                 </p>
               )}
             </div>
@@ -208,11 +249,15 @@ const productsQuery = useQuery<Product[]>({
                 Nenhum item adicionado.
               </p>
             )}
-            {comanda?.subcomandas?.length ? (
+            {!isSub && comanda?.subcomandas?.length ? (
               <div className="mt-4 space-y-1">
                 {comanda.subcomandas.map((s) => (
-                  <div key={s.id} className="flex justify-between text-sm">
-                    <span>{s.nomeCliente || s.id}</span>
+                  <div
+                    key={s.id}
+                    className="flex justify-between text-sm cursor-pointer"
+                    onClick={() => navigate(`/comandas/${comanda.id}/subcomandas/${s.id}`)}
+                  >
+                    <span>{s.nome_cliente || s.id}</span>
                     <span>{s.status}</span>
                   </div>
                 ))}
@@ -235,16 +280,16 @@ const productsQuery = useQuery<Product[]>({
                   <Button onClick={() => setPaymentOpen(true)}>
                     Fechar Comanda
                   </Button>
-                  {isMesa && (
-                    <Button
-                      variant="secondary"
-                      onClick={() => setSplitOpen(true)}
-                    >
-                      Dividir Comanda
-                    </Button>
-                  )}
                 </>
               ) : null}
+              {isMesa && !isSub && comanda && (
+                <Button
+                  variant="secondary"
+                  onClick={() => setSplitOpen(true)}
+                >
+                  Dividir Mesa
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -473,12 +518,18 @@ const productsQuery = useQuery<Product[]>({
                   if (!comanda) return;
                   try {
                     await addPagamento({
-                      comandaid: comanda.id,
+                      comandaid: isSub ? (id as string) : comanda.id,
                       valorpago: paymentValue,
                       formapagamento: paymentMethod,
+                      subcomandaid: isSub ? subId : undefined,
                     });
                     setPaymentValue(0);
-                    await refetch();
+                    if (isSub) {
+                      await refetchSub();
+                      await parentComandaQuery.refetch();
+                    } else {
+                      await refetch();
+                    }
                   } catch (err) {
                     console.error(err);
                   }
@@ -511,53 +562,54 @@ const productsQuery = useQuery<Product[]>({
         </DialogContent>
       </Dialog>
 
-      {/* Dividir Comanda */}
-      <Dialog open={splitOpen} onOpenChange={setSplitOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Dividir Comanda</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="flex space-x-2">
-              <Input
-                value={splitName}
-                onChange={(e) => setSplitName(e.target.value)}
-                placeholder="Nome"
-              />
+      {isMesa && !isSub && (
+        <Dialog open={splitOpen} onOpenChange={setSplitOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Dividir Mesa</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="flex space-x-2">
+                <Input
+                  value={splitName}
+                  onChange={(e) => setSplitName(e.target.value)}
+                  placeholder="Nome"
+                />
+                <Button
+                  onClick={() => {
+                    if (splitName.trim()) {
+                      setSplitNames((prev) => [...prev, splitName.trim()]);
+                      setSplitName("");
+                    }
+                  }}
+                >
+                  Adicionar
+                </Button>
+              </div>
+              <ul className="list-disc pl-5">
+                {splitNames.map((n, idx) => (
+                  <li key={idx}>{n}</li>
+                ))}
+              </ul>
               <Button
-                onClick={() => {
-                  if (splitName.trim()) {
-                    setSplitNames((prev) => [...prev, splitName.trim()]);
-                    setSplitName("");
+                onClick={async () => {
+                  if (!comanda) return;
+                  try {
+                    await createSubComandas(comanda.id, splitNames);
+                    setSplitNames([]);
+                    setSplitOpen(false);
+                    await refetch();
+                  } catch (err) {
+                    console.error(err);
                   }
                 }}
               >
-                Adicionar
+                Dividir
               </Button>
             </div>
-            <ul className="list-disc pl-5">
-              {splitNames.map((n, idx) => (
-                <li key={idx}>{n}</li>
-              ))}
-            </ul>
-            <Button
-              onClick={async () => {
-                if (!comanda) return;
-                try {
-                  await createSubComandas(comanda.id, splitNames);
-                  setSplitNames([]);
-                  setSplitOpen(false);
-                  await refetch();
-                } catch (err) {
-                  console.error(err);
-                }
-              }}
-            >
-              Dividir
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

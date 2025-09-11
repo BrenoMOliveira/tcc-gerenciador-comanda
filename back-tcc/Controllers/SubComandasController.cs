@@ -29,6 +29,18 @@ namespace back_tcc.Controllers
             public string nomeCliente { get; set; } = string.Empty;
         }
 
+        [HttpGet("{subId}")]
+        public async Task<ActionResult<SubComanda>> GetSubComanda(Guid comandaId, Guid subId)
+        {
+            var sub = await _context.SubComandas
+                .Include(s => s.pedidos)
+                .Include(s => s.pagamentos)
+                .FirstOrDefaultAsync(s => s.comandaid == comandaId && s.id == subId);
+            if (sub == null) return NotFound("Subcomanda nao encontrada");
+            return sub;
+        }
+
+
         [HttpPost]
         public async Task<ActionResult<IEnumerable<SubComanda>>> CriarSubComandas(Guid comandaId, [FromBody] List<SubComandaDto> clientes)
         {

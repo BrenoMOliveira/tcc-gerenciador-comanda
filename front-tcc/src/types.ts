@@ -38,16 +38,20 @@ export interface Pagamento {
   comandaid: string;
   valorpago: number;
   formapagamento: string;
-  pagamentoem?: string;
+  pagoem?: string;
   subcomandaid?: string;
 }
 
 export interface SubComanda {
   id: string;
+  numero?: number;
   comandaid: string;
-  nomeCliente?: string;
+  tipo?: string;
+  mesaNum?: number;
+  nome_cliente?: string;
   status: string;
   criadoem?: string;
   pedidos?: Pedido[];
   pagamentos?: Pagamento[];
+  subcomandas?: SubComanda[];
 }
