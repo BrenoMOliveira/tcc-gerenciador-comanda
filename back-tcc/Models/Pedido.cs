@@ -13,6 +13,8 @@ namespace back_tcc.Models
         [Required]
         public Guid comandaid { get; set; }
 
+        public Guid? subcomandaid { get; set; }
+
         [Required]
         public Guid produtoid { get; set; }
 

@@ -35,5 +35,9 @@ namespace back_tcc.Models
         public Guid criadopor { get; set; }
 
         public List<Pedido> pedidos { get; set; } = new();
+
+        public List<Pagamento> pagamentos { get; set; } = new();
+
+        public List<SubComanda> subcomandas { get; set; } = new();
     }
 }

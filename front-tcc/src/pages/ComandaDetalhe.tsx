@@ -1,9 +1,9 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { fetchComanda, fetchMesa, createMesaComanda, fetchProducts, fetchCategories, addItemToComanda } from "@/lib/api";
+import { fetchComanda, fetchMesa, createMesaComanda, fetchProducts, fetchCategories, addItemToComanda, addPagamento, createSubComandas } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Comanda, Pedido, Mesa, Product } from "@/types";
+import { Comanda, Pedido, Mesa, Product, Pagamento } from "@/types";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -42,6 +42,13 @@ export const ComandaDetalhe = () => {
   >({});
   const [submittedCategories, setSubmittedCategories] = useState<string[]>([]);
   const [productsMap, setProductsMap] = useState<Record<string, Product>>({});
+  const [conferenceOpen, setConferenceOpen] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [splitOpen, setSplitOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("dinheiro");
+  const [paymentValue, setPaymentValue] = useState(0);
+  const [splitName, setSplitName] = useState("");
+  const [splitNames, setSplitNames] = useState<string[]>([]);
 
   const categoriesQuery = useQuery<Category[]>({
     queryKey: ["categories"],
@@ -132,6 +139,15 @@ const productsQuery = useQuery<Product[]>({
   const mesa = isMesa ? (data as Mesa) : undefined;
   const comanda = isMesa ? mesa?.comanda : (data as Comanda);
 
+  const totalComanda =
+    comanda?.pedidos?.reduce(
+      (acc, p) => acc + p.precoUnit * p.quantidade,
+      0
+    ) || 0;
+  const totalPago =
+    comanda?.pagamentos?.reduce((acc, p) => acc + p.valorpago, 0) || 0;
+  const saldo = totalComanda - totalPago;
+
   return (
     <div className="p-4 sm:p-6 space-y-6">
       <Button variant="outline" onClick={() => navigate(-1)}>
@@ -192,9 +208,44 @@ const productsQuery = useQuery<Product[]>({
                 Nenhum item adicionado.
               </p>
             )}
-            {comanda && (comanda.status.toLowerCase() === "aberta" || !comanda.pedidos?.length) && (
-              <Button onClick={() => setOpen(true)}>Novo Pedido</Button>
-            )}
+            {comanda?.subcomandas?.length ? (
+              <div className="mt-4 space-y-1">
+                {comanda.subcomandas.map((s) => (
+                  <div key={s.id} className="flex justify-between text-sm">
+                    <span>{s.nomeCliente || s.id}</span>
+                    <span>{s.status}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              {comanda &&
+                (comanda.status.toLowerCase() === "aberta" ||
+                  !comanda.pedidos?.length) && (
+                  <Button onClick={() => setOpen(true)}>Novo Pedido</Button>
+                )}
+              {comanda?.pedidos?.length ? (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => setConferenceOpen(true)}
+                  >
+                    Conferência
+                  </Button>
+                  <Button onClick={() => setPaymentOpen(true)}>
+                    Fechar Comanda
+                  </Button>
+                  {isMesa && (
+                    <Button
+                      variant="secondary"
+                      onClick={() => setSplitOpen(true)}
+                    >
+                      Dividir Comanda
+                    </Button>
+                  )}
+                </>
+              ) : null}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -356,6 +407,154 @@ const productsQuery = useQuery<Product[]>({
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+    {/* Conferencia */}
+      <Dialog open={conferenceOpen} onOpenChange={setConferenceOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Conferência</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {Object.entries(
+              comanda?.pedidos?.reduce((acc: any, p: Pedido) => {
+                const key = p.produtoId;
+                if (!acc[key]) acc[key] = { quantidade: 0, preco: p.precoUnit };
+                acc[key].quantidade += p.quantidade;
+                return acc;
+              }, {}) || {}
+            ).map(([prodId, info]: any) => {
+              const prodName =
+                allProductsQuery.data?.find((prod) => prod.id === prodId)?.name || prodId;
+              const subtotal = info.preco * info.quantidade;
+              return (
+                <div key={prodId} className="flex justify-between">
+                  <span>
+                    {info.quantidade}x {prodName} - R$ {info.preco.toFixed(2)}
+                  </span>
+                  <span>R$ {subtotal.toFixed(2)}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-4 font-semibold">Total: R$ {totalComanda.toFixed(2)}</div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pagamento */}
+      <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Pagamentos</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>Restante: R$ {saldo.toFixed(2)}</div>
+            <div className="flex space-x-2">
+              <select
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                className="border rounded p-2"
+              >
+                <option value="dinheiro">Dinheiro</option>
+                <option value="pix">PIX</option>
+                <option value="credito">Cartão de Crédito</option>
+                <option value="debito">Cartão de Débito</option>
+              </select>
+              <Input
+                type="number"
+                min={0}
+                value={paymentValue}
+                onChange={(e) => setPaymentValue(Number(e.target.value))}
+                className="w-32"
+              />
+              <Button
+                onClick={async () => {
+                  if (!comanda) return;
+                  try {
+                    await addPagamento({
+                      comandaid: comanda.id,
+                      valorpago: paymentValue,
+                      metodo: paymentMethod,
+                    });
+                    setPaymentValue(0);
+                    await refetch();
+                  } catch (err) {
+                    console.error(err);
+                  }
+                }}
+              >
+                Adicionar
+              </Button>
+            </div>
+            <div className="space-y-1">
+              {comanda?.pagamentos?.map((p: Pagamento) => (
+                <div key={p.id} className="flex justify-between text-sm">
+                  <span>
+                    {p.metodo} - R$ {p.valorpago.toFixed(2)}
+                  </span>
+                  <span>
+                    {p.pagamentoem
+                      ? new Date(p.pagamentoem).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : null}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {saldo <= 0 && (
+              <Button onClick={() => setPaymentOpen(false)}>Fechar</Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dividir Comanda */}
+      <Dialog open={splitOpen} onOpenChange={setSplitOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Dividir Comanda</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex space-x-2">
+              <Input
+                value={splitName}
+                onChange={(e) => setSplitName(e.target.value)}
+                placeholder="Nome"
+              />
+              <Button
+                onClick={() => {
+                  if (splitName.trim()) {
+                    setSplitNames((prev) => [...prev, splitName.trim()]);
+                    setSplitName("");
+                  }
+                }}
+              >
+                Adicionar
+              </Button>
+            </div>
+            <ul className="list-disc pl-5">
+              {splitNames.map((n, idx) => (
+                <li key={idx}>{n}</li>
+              ))}
+            </ul>
+            <Button
+              onClick={async () => {
+                if (!comanda) return;
+                try {
+                  await createSubComandas(comanda.id, splitNames);
+                  setSplitNames([]);
+                  setSplitOpen(false);
+                  await refetch();
+                } catch (err) {
+                  console.error(err);
+                }
+              }}
+            >
+              Dividir
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

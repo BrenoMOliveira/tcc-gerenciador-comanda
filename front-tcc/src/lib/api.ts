@@ -1,5 +1,5 @@
 import { authFetch } from "./auth";
-import { Product, Comanda, Mesa, Pedido } from "@/types";
+import { Product, Comanda, Mesa, Pedido, Pagamento, SubComanda } from "@/types";
 
 //export const API_URL = import.meta.env.VITE_API_URL || "https://back-tcc-production.up.railway.app";
 export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5125";
@@ -165,12 +165,37 @@ function mapPedido(p: {
   produtoid: string;
   quantidade: number;
   precounit: number;
+  subcomandaid?: string;
 }): Pedido {
   return {
     id: p.id,
     produtoId: p.produtoid,
     quantidade: p.quantidade,
     precoUnit: p.precounit,
+    subcomandaid: p.subcomandaid,
+  };
+}
+
+function mapPagamento(p: any): Pagamento {
+  return {
+    id: p.id,
+    comandaid: p.comandaid,
+    valorpago: p.valorpago,
+    metodo: p.metodo,
+    pagamentoem: p.pagamentoem,
+    subcomandaid: p.subcomandaid,
+  };
+}
+
+function mapSubcomanda(s: any): SubComanda {
+  return {
+    id: s.id,
+    comandaid: s.comandaid,
+    nomeCliente: s.nomeCliente || s.nome_cliente,
+    status: s.status,
+    criadoem: s.criadoem,
+    pedidos: s.pedidos?.map(mapPedido),
+    pagamentos: s.pagamentos?.map(mapPagamento),
   };
 }
 
@@ -183,6 +208,8 @@ export async function fetchComanda(id: string): Promise<Comanda> {
   return {
     ...data,
     pedidos: data.pedidos?.map(mapPedido),
+    pagamentos: data.pagamentos?.map(mapPagamento),
+    subcomandas: data.subcomandas?.map(mapSubcomanda),
   };
 }
 
@@ -195,7 +222,12 @@ export async function fetchMesa(id: string): Promise<Mesa> {
   return {
     ...data,
     comanda: data.comanda
-      ? { ...data.comanda, pedidos: data.comanda.pedidos?.map(mapPedido) }
+      ? {
+          ...data.comanda,
+          pedidos: data.comanda.pedidos?.map(mapPedido),
+          pagamentos: data.comanda.pagamentos?.map(mapPagamento),
+          subcomandas: data.comanda.subcomandas?.map(mapSubcomanda),
+        }
       : undefined,
   };
 }
@@ -239,6 +271,43 @@ export async function addItemToComanda(
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.message || "Failed to add item to comanda");
+  }
+  return res.json();
+}
+
+export async function addPagamento(data: {
+  comandaid: string;
+  valorpago: number;
+  metodo: string;
+  subcomandaid?: string;
+}): Promise<Pagamento> {
+  const res = await authFetch(`${API_URL}/api/pagamentos`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to add payment");
+  }
+  return res.json();
+}
+
+export async function createSubComandas(
+  comandaId: string,
+  nomes: string[]
+): Promise<SubComanda[]> {
+  const res = await authFetch(
+    `${API_URL}/api/comandas/${comandaId}/subcomandas`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(nomes.map((n) => ({ nomeCliente: n }))),
+    }
+  );
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to create subcomandas");
   }
   return res.json();
 }

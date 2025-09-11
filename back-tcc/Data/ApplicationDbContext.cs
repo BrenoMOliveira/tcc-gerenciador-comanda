@@ -15,6 +15,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Mesa> Mesas => Set<Mesa>();
     public DbSet<Comanda> Comanda => Set<Comanda>();
     public DbSet<Pedido> Pedidos => Set<Pedido>();
+    public DbSet<Pagamento> Pagamentos => Set<Pagamento>();
+    public DbSet<SubComanda> SubComandas => Set<SubComanda>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

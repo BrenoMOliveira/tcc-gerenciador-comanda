@@ -3,6 +3,7 @@ export interface Pedido {
   produtoId: string;
   quantidade: number;
   precoUnit: number;
+  subcomandaid?: string;
 }
 
 export interface Comanda {
@@ -14,6 +15,8 @@ export interface Comanda {
   mesaNum?: number;
   criadoem?: string;
   pedidos?: Pedido[];
+  pagamentos?: Pagamento[];
+  subcomandas?: SubComanda[];
 }
 
 export interface Mesa {
@@ -28,4 +31,23 @@ export interface Product {
   id: string;
   name: string;
   price: number;
+}
+
+export interface Pagamento {
+  id: string;
+  comandaid: string;
+  valorpago: number;
+  metodo: string;
+  pagamentoem?: string;
+  subcomandaid?: string;
+}
+
+export interface SubComanda {
+  id: string;
+  comandaid: string;
+  nomeCliente?: string;
+  status: string;
+  criadoem?: string;
+  pedidos?: Pedido[];
+  pagamentos?: Pagamento[];
 }

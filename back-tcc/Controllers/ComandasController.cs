@@ -40,6 +40,8 @@ namespace back_tcc.Controllers
         {
             var comanda = await _context.Comanda
                 .Include(c => c.pedidos)
+                .Include(c => c.pagamentos)
+                .Include(c => c.subcomandas)
                 .FirstOrDefaultAsync(c => c.id == id);
             if (comanda == null)
             {
