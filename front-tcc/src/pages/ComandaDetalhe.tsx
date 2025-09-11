@@ -29,27 +29,29 @@ export const ComandaDetalhe = () => {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const productsQuery = useQuery<Product[]>({
     queryKey: ["products"],
-    queryFn: fetchProducts,
-    enabled: open,
+    queryFn: () => fetchProducts(),
   });
 
-    const handleAddItem = async (produtoId: string) => {
-    const comandaData = isMesa
-      ? (data as Mesa).comanda
-      : (data as Comanda);
-    if (!comandaData) return;
-    const qtd = quantities[produtoId] || 1;
-    try {
-      await addItemToComanda(comandaData.id, {
-        produtoId,
-        quantidade: qtd,
-      });
-      setQuantities((q) => ({ ...q, [produtoId]: 1 }));
-      await refetch();
-    } catch (err) {
-      console.error("Erro ao adicionar item", err);
-    }
-  };
+const handleAddItem = async (produtoId: string) => {
+  const comandaData = isMesa
+    ? (data as Mesa).comanda
+    : (data as Comanda);
+  if (!comandaData) return;
+  const product = productsQuery.data?.find((p) => p.id === produtoId);
+  if (!product) return;
+  const qtd = quantities[produtoId] || 1;
+  try {
+    await addItemToComanda(comandaData.id, {
+      produtoId,
+      quantidade: qtd,
+      precoUnit: product.price,
+    });
+    setQuantities((q) => ({ ...q, [produtoId]: 1 }));
+    await refetch();
+  } catch (err) {
+    console.error("Erro ao adicionar item", err);
+  }
+};
 
   if (!data) return null;
 
@@ -97,15 +99,21 @@ export const ComandaDetalhe = () => {
             </div>
             {comanda?.pedidos?.length ? (
               <div className="space-y-2">
-                {comanda.pedidos.map((p: Pedido) => (
-                  <div
-                    key={p.id}
-                    className="flex justify-between border-b border-border py-1"
-                  >
-                    <span>{p.quantidade}x {p.produtoId}</span>
-                    <span className="font-medium">R$ {p.precoUnit}</span>
-                  </div>
-                ))}
+                {comanda.pedidos.map((p: Pedido) => {
+                  const prodName =
+                    productsQuery.data?.find((prod) => prod.id === p.produtoId)?.name ||
+                    p.produtoId;
+                  return (
+                    <div
+                      key={p.id}
+                      className="flex border-b border-border py-1"
+                    >
+                      <span>
+                        {p.quantidade}x {prodName}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">

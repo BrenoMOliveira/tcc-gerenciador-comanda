@@ -1,4 +1,5 @@
 import { authFetch } from "./auth";
+import { Product, Comanda, Mesa, Pedido } from "@/types";
 
 //export const API_URL = import.meta.env.VITE_API_URL || "https://back-tcc-production.up.railway.app";
 export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5125";
@@ -7,7 +8,7 @@ export async function fetchProducts(params?: {
   search?: string;
   categoryId?: string;
   availabilityId?: string;
-}) {
+}): Promise<Product[]>{
   const query = new URLSearchParams();
   if (params?.search) query.append("search", params.search);
   if (params?.categoryId) query.append("categoryId", params.categoryId);
@@ -159,20 +160,44 @@ export async function fetchComandas(tipo?: string) {
   return res.json();
 }
 
-export async function fetchComanda(id: string) {
+function mapPedido(p: {
+  id: string;
+  produtoid: string;
+  quantidade: number;
+  precounit: number;
+}): Pedido {
+  return {
+    id: p.id,
+    produtoId: p.produtoid,
+    quantidade: p.quantidade,
+    precoUnit: p.precounit,
+  };
+}
+
+export async function fetchComanda(id: string): Promise<Comanda> {
   const res = await authFetch(`${API_URL}/api/comandas/${id}`);
   if (!res.ok) {
     throw new Error("Failed to fetch comanda");
   }
-  return res.json();
+  const data = await res.json();
+  return {
+    ...data,
+    pedidos: data.pedidos?.map(mapPedido),
+  };
 }
 
-export async function fetchMesa(id: string) {
+export async function fetchMesa(id: string): Promise<Mesa> {
   const res = await authFetch(`${API_URL}/api/mesas/${id}`);
   if (!res.ok) {
     throw new Error("Failed to fetch mesa");
   }
-  return res.json();
+  const data = await res.json();
+  return {
+    ...data,
+    comanda: data.comanda
+      ? { ...data.comanda, pedidos: data.comanda.pedidos?.map(mapPedido) }
+      : undefined,
+  };
 }
 
 export async function createComanda(data: { tipo: string; nome_cliente: string; cliente_id?: string; mesaNum?: number; criadoPor: string }) {
@@ -199,18 +224,21 @@ export async function createMesaComanda(mesaId: string) {
 
 export async function addItemToComanda(
   comandaId: string,
-  data: { produtoId: string; quantidade: number }
+  data: { produtoId: string; quantidade: number; precoUnit: number }
 ) {
-  const res = await authFetch(
-    `${API_URL}/api/comandas/${comandaId}/itens`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    }
-  );
+  const res = await authFetch(`${API_URL}/api/pedidos`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      comandaid: comandaId,
+      produtoid: data.produtoId,
+      quantidade: data.quantidade,
+      precounit: data.precoUnit,
+    }),
+  });
   if (!res.ok) {
-    throw new Error("Failed to add item to comanda");
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to add item to comanda");
   }
   return res.json();
 }
