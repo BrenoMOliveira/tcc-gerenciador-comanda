@@ -1,7 +1,7 @@
 import { authFetch } from "./auth";
 
-//export const API_URL = import.meta.env.VITE_API_URL || "https://back-tcc-production.up.railway.app";
-export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5125";
+export const API_URL = import.meta.env.VITE_API_URL || "https://back-tcc-production.up.railway.app";
+//export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5125";
 
 export async function fetchProducts(params?: {
   search?: string;
