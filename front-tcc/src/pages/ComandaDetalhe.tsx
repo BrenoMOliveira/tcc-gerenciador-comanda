@@ -1,12 +1,17 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { fetchComanda, fetchMesa, createMesaComanda, fetchProducts, addItemToComanda } from "@/lib/api";
+import { fetchComanda, fetchMesa, createMesaComanda, fetchProducts, fetchCategories, addItemToComanda } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Comanda, Pedido, Mesa, Product } from "@/types";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+
+interface Category {
+  id: string;
+  name: string;
+}
 
 export const ComandaDetalhe = () => {
   const navigate = useNavigate();
@@ -26,32 +31,101 @@ export const ComandaDetalhe = () => {
   });
 
   const [open, setOpen] = useState(false);
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const productsQuery = useQuery<Product[]>({
+  const [modalStep, setModalStep] = useState<"categories" | "items" | "summary">(
+    "categories"
+  );
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(
+    null
+  );
+  const [categoryItems, setCategoryItems] = useState<
+    Record<string, Record<string, number>>
+  >({});
+  const [submittedCategories, setSubmittedCategories] = useState<string[]>([]);
+  const [productsMap, setProductsMap] = useState<Record<string, Product>>({});
+
+  const categoriesQuery = useQuery<Category[]>({
+    queryKey: ["categories"],
+    queryFn: fetchCategories,
+  });
+
+  const allProductsQuery = useQuery<Product[]>({
     queryKey: ["products"],
     queryFn: () => fetchProducts(),
   });
 
-const handleAddItem = async (produtoId: string) => {
-  const comandaData = isMesa
-    ? (data as Mesa).comanda
-    : (data as Comanda);
-  if (!comandaData) return;
-  const product = productsQuery.data?.find((p) => p.id === produtoId);
-  if (!product) return;
-  const qtd = quantities[produtoId] || 1;
-  try {
-    await addItemToComanda(comandaData.id, {
-      produtoId,
-      quantidade: qtd,
-      precoUnit: product.price,
-    });
-    setQuantities((q) => ({ ...q, [produtoId]: 1 }));
-    await refetch();
-  } catch (err) {
-    console.error("Erro ao adicionar item", err);
-  }
-};
+const productsQuery = useQuery<Product[]>({
+    queryKey: ["products", selectedCategory?.id],
+    queryFn: () => fetchProducts({ categoryId: selectedCategory?.id }),
+    enabled: modalStep === "items" && !!selectedCategory?.id,
+  });
+
+  useEffect(() => {
+    if (productsQuery.data) {
+      setProductsMap((prev) => ({
+        ...prev,
+        ...Object.fromEntries(productsQuery.data.map((p) => [p.id, p])),
+      }));
+    }
+  }, [productsQuery.data]);
+
+  const handleOpenChange = (o: boolean) => {
+    if (!o) {
+      setModalStep("categories");
+      setSelectedCategory(null);
+      setCategoryItems({});
+      setSubmittedCategories([]);
+      setProductsMap({});
+    }
+    setOpen(o);
+  };
+
+  const getQuantity = (catId: string, prodId: string) => {
+    return categoryItems[catId]?.[prodId] || 0;
+  };
+
+  const updateQuantity = (catId: string, prodId: string, qtd: number) => {
+    if (qtd < 0) qtd = 0;
+    setCategoryItems((prev) => ({
+      ...prev,
+      [catId]: { ...prev[catId], [prodId]: qtd },
+    }));
+  };
+
+  const handleEnviarPedido = () => {
+    if (!selectedCategory) return;
+    setSubmittedCategories((prev) =>
+      prev.includes(selectedCategory.id)
+        ? prev
+        : [...prev, selectedCategory.id]
+    );
+    setModalStep("categories");
+  };
+
+  const handleConfirmPedido = async () => {
+    const comandaData = isMesa
+      ? (data as Mesa).comanda
+      : (data as Comanda);
+    if (!comandaData) return;
+    try {
+      for (const catId of submittedCategories) {
+        const items = categoryItems[catId] || {};
+        for (const [prodId, qtd] of Object.entries(items)) {
+          if (qtd > 0) {
+            const prod = productsMap[prodId];
+            await addItemToComanda(comandaData.id, {
+              produtoId: prodId,
+              quantidade: qtd,
+              precoUnit: prod?.price || 0,
+            });
+          }
+        }
+      }
+      await refetch();
+      handleOpenChange(false);
+    } catch (err) {
+      console.error("Erro ao confirmar pedido", err);
+    }
+  };
 
   if (!data) return null;
 
@@ -100,9 +174,7 @@ const handleAddItem = async (produtoId: string) => {
             {comanda?.pedidos?.length ? (
               <div className="space-y-2">
                 {comanda.pedidos.map((p: Pedido) => {
-                  const prodName =
-                    productsQuery.data?.find((prod) => prod.id === p.produtoId)?.name ||
-                    p.produtoId;
+                  const prodName = allProductsQuery.data?.find((prod) => prod.id === p.produtoId)?.name || p.produtoId;
                   return (
                     <div
                       key={p.id}
@@ -126,35 +198,164 @@ const handleAddItem = async (produtoId: string) => {
           </CardContent>
         </Card>
       )}
-      <Dialog open={open} onOpenChange={setOpen}>
+     <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Adicionar Produto</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {productsQuery.data?.map((prod: Product) => (
-              <div key={prod.id} className="flex items-center justify-between">
-                <span>
-                  {prod.name} - R$ {prod.price}
-                </span>
-                <div className="flex items-center space-x-2">
-                  <Input
-                    type="number"
-                    min={1}
-                    value={quantities[prod.id] || 1}
-                    onChange={(e) =>
-                      setQuantities({
-                        ...quantities,
-                        [prod.id]: Number(e.target.value),
-                      })
-                    }
-                    className="w-16"
-                  />
-                  <Button onClick={() => handleAddItem(prod.id)}>Adicionar</Button>
-                </div>
+          {modalStep === "categories" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Categorias</DialogTitle>
+              </DialogHeader>
+              {submittedCategories.length > 0 && (
+                <Button className="mb-4" onClick={() => setModalStep("summary")}>Consultar Itens</Button>
+              )}
+              <div className="space-y-2">
+                {categoriesQuery.data?.map((cat) => (
+                  <Button
+                    key={cat.id}
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() => {
+                      setSelectedCategory(cat);
+                      setModalStep("items");
+                    }}
+                  >
+                    {cat.name}
+                  </Button>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          )}
+          {modalStep === "items" && selectedCategory && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{selectedCategory.name}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                {productsQuery.data?.map((prod) => {
+                  const qtd = getQuantity(selectedCategory.id, prod.id);
+                  return (
+                    <div key={prod.id} className="flex items-center justify-between">
+                      <span>{prod.name}</span>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          onClick={() =>
+                            updateQuantity(selectedCategory.id, prod.id, qtd - 1)
+                          }
+                        >
+                          -
+                        </Button>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={qtd === 0 ? "" : qtd}
+                          onChange={(e) =>
+                            updateQuantity(
+                              selectedCategory.id,
+                              prod.id,
+                              e.target.value === "" ? 0 : Number(e.target.value)
+                            )
+                          }
+                          className="w-16 text-center"
+                        />
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          onClick={() =>
+                            updateQuantity(selectedCategory.id, prod.id, qtd + 1)
+                          }
+                        >
+                          +
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex justify-between mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setModalStep("categories")}
+                >
+                  Voltar
+                </Button>
+                <Button onClick={handleEnviarPedido}>Enviar Pedido</Button>
+              </div>
+            </>
+          )}
+          {modalStep === "summary" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Resumo do Pedido</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                {submittedCategories.map((catId) => {
+                  const cat = categoriesQuery.data?.find((c) => c.id === catId);
+                  const items = categoryItems[catId] || {};
+                  return (
+                    <div key={catId} className="space-y-2">
+                      <h3 className="font-semibold">{cat?.name}</h3>
+                      {Object.entries(items).map(([prodId, qtd]) => {
+                        if (qtd <= 0) return null;
+                        const prod = productsMap[prodId];
+                        return (
+                          <div
+                            key={prodId}
+                            className="flex items-center justify-between"
+                          >
+                            <span>{prod?.name || prodId}</span>
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                onClick={() =>
+                                  updateQuantity(catId, prodId, qtd - 1)
+                                }
+                              >
+                                -
+                              </Button>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={qtd === 0 ? "" : qtd}
+                                onChange={(e) =>
+                                  updateQuantity(
+                                    catId,
+                                    prodId,
+                                    e.target.value === "" ? 0 : Number(e.target.value)
+                                  )
+                                }
+                                className="w-16 text-center"
+                              />
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                onClick={() =>
+                                  updateQuantity(catId, prodId, qtd + 1)
+                                }
+                              >
+                                +
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex justify-between mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setModalStep("categories")}
+                >
+                  Voltar
+                </Button>
+                <Button onClick={handleConfirmPedido}>Confirmar Pedido</Button>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
