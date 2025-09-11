@@ -1,6 +1,6 @@
 import { authFetch } from "./auth";
 
-export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5125";
+export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export async function fetchProducts(params?: {
   search?: string;

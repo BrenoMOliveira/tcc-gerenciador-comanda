@@ -2,14 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "back-tcc/back-tcc.csproj",
+      "src": "/back-tcc/bin/Debug/net9.0/back-tcc.exe",
       "use": "@vercel/dotnet"
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "back-tcc/back-tcc.csproj"
+      "src": "/(.*)",
+      "dest": "/back-tcc/bin/Debug/net9.0/back-tcc.exe"
     }
   ]
 }
