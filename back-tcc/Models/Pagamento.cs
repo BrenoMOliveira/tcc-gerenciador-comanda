@@ -17,9 +17,9 @@ namespace back_tcc.Models
         public decimal valorpago { get; set; }
 
         [Required]
-        public string metodo { get; set; } = string.Empty; // Dinheiro, PIX, CartaoCredito, CartaoDebito
+        public string formapagamento { get; set; } = string.Empty; // Dinheiro, PIX, CartaoCredito, CartaoDebito
 
-        public DateTime pagamentoem { get; set; } = DateTime.UtcNow;
+        public DateTime pagoem { get; set; } = DateTime.UtcNow;
 
         public Guid? subcomandaid { get; set; }
     }

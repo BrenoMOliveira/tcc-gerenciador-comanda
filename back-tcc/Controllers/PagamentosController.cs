@@ -39,7 +39,7 @@ namespace back_tcc.Controllers
             [Required]
             public decimal valorpago { get; set; }
             [Required]
-            public string metodo { get; set; } = string.Empty;
+            public string formapagamento { get; set; } = string.Empty;
         }
 
         [HttpPost]
@@ -57,8 +57,8 @@ namespace back_tcc.Controllers
                 comandaid = dto.comandaid,
                 subcomandaid = dto.subcomandaid,
                 valorpago = dto.valorpago,
-                metodo = dto.metodo,
-                pagamentoem = DateTime.UtcNow
+                formapagamento = dto.formapagamento,
+                pagoem = DateTime.UtcNow
             };
 
             _context.Pagamentos.Add(pagamento);
