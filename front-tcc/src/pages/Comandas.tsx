@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Mesa, Comanda } from "@/types";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 export const Comandas = () => {
   const [activeTab, setActiveTab] = useState("mesas");
@@ -38,6 +39,13 @@ export const Comandas = () => {
     },
   });
 
+  const getStatusClass = (status: string) =>
+    status === "Ocupada"
+      ? "text-red-500"
+      : status === "Aguardando Pagamento"
+      ? "text-green-500"
+      : "text-muted-foreground";
+
   return (
     <div className="p-4 sm:p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -45,44 +53,78 @@ export const Comandas = () => {
           <h1 className="text-3xl font-bold text-foreground mb-2">Comandas</h1>
           <p className="text-muted-foreground">Gerencie pedidos e comandas do restaurante</p>
         </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button className="bg-gradient-primary text-primary-foreground">Adicionar Comanda</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Nova Comanda</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <Select value={tipoNovo} onValueChange={setTipoNovo}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="balcao">Balcão</SelectItem>
-                  <SelectItem value="entrega">Entrega</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                placeholder="Nome do cliente"
-                value={clienteNovo}
-                onChange={(e) => setClienteNovo(e.target.value)}
-              />
-              <Button
-                disabled={!clienteNovo.trim()}
-                onClick={() =>
-                  mutation.mutate({
-                    tipo: tipoNovo,
-                    nome_cliente: clienteNovo,
-                    criadoPor: "00000000-0000-0000-0000-000000000000",
-                  })
-                }
-              >
-                Criar
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        {activeTab === "mesas" ? (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button className="bg-gradient-primary text-primary-foreground">Adicionar Comanda</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Nova Comanda</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <Select value={tipoNovo} onValueChange={setTipoNovo}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="balcao">Balcão</SelectItem>
+                    <SelectItem value="entrega">Entrega</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  placeholder="Nome do cliente"
+                  value={clienteNovo}
+                  onChange={(e) => setClienteNovo(e.target.value)}
+                />
+                <Button
+                  disabled={!clienteNovo.trim()}
+                  onClick={() => {
+                    mutation.mutate({
+                      tipo: tipoNovo,
+                      nome_cliente: clienteNovo,
+                      criadoPor: "00000000-0000-0000-0000-000000000000",
+                    });
+                    setClienteNovo("");
+                  }}
+                >
+                  Criar
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        ) : (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button className="bg-gradient-primary text-primary-foreground">Adicionar Comanda</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Nova Comanda</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <Input
+                  placeholder="Nome do cliente"
+                  value={clienteNovo}
+                  onChange={(e) => setClienteNovo(e.target.value)}
+                />
+                <Button
+                  disabled={!clienteNovo.trim()}
+                  onClick={() => {
+                    mutation.mutate({
+                      tipo: activeTab,
+                      nome_cliente: clienteNovo,
+                      criadoPor: "00000000-0000-0000-0000-000000000000",
+                    });
+                    setClienteNovo("");
+                  }}
+                >
+                  Criar
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -98,41 +140,47 @@ export const Comandas = () => {
           <CardTitle>Comandas Ativas</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="space-y-2 p-4">
-            {activeTab === "mesas" && mesas && mesas.map((mesa: Mesa) => (
-              <div
-                key={mesa.id}
-                className="p-4 border rounded-lg cursor-pointer hover:bg-muted/50"
-                onClick={() => navigate(`/comandas/mesas/${mesa.id}`)}
-              >
-                <div className="flex justify-between">
-                  <span className="font-medium">Mesa {mesa.numero}</span>
-                  <span className="text-sm">{mesa.status}</span>
+          {activeTab === "mesas" && mesas && (
+            <div className="grid gap-4 p-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+              {mesas.map((mesa: Mesa) => (
+                <div
+                  key={mesa.id}
+                  className="p-4 border rounded-lg cursor-pointer hover:bg-muted/50"
+                  onClick={() => navigate(`/comandas/mesas/${mesa.id}`)}
+                >
+                  <div className="flex justify-between">
+                    <span className="font-medium">Mesa {mesa.numero}</span>
+                    <span className={cn("text-sm", getStatusClass(mesa.status))}>{mesa.status}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
-            {activeTab !== "mesas" && comandas && comandas.map((c: Comanda) => (
-              <div
-                key={c.id}
-                className="p-4 border rounded-lg cursor-pointer hover:bg-muted/50"
-                onClick={() => navigate(`/comandas/${c.id}`)}
-              >
-                <div className="flex justify-between">
-                  <span className="font-medium">
+              ))}
+            </div>
+          )}
+          {activeTab !== "mesas" && comandas && (
+            <div className="space-y-2 p-4">
+              {comandas.map((c: Comanda) => (
+                <div
+                  key={c.id}
+                  className="p-4 border rounded-lg cursor-pointer hover:bg-muted/50"
+                  onClick={() => navigate(`/comandas/${c.id}`)}
+                >
+                  <div className="flex justify-between">
                     <span className="font-medium">
-                      {c.nome_cliente ? `${c.nome_cliente} - ` : ""}
-                      {c.tipo === "balcao"
-                        ? `Balcão #${c.numero}`
-                        : c.tipo === "entrega"
-                        ? `Entrega #${c.numero}`
-                        : `Mesa ${c.mesaNum}`}
+                      <span className="font-medium">
+                        {c.nome_cliente ? `${c.nome_cliente} - ` : ""}
+                        {c.tipo === "balcao"
+                          ? `Balcão #${c.numero}`
+                          : c.tipo === "entrega"
+                          ? `Entrega #${c.numero}`
+                          : `Mesa ${c.mesaNum}`}
+                      </span>
                     </span>
-                  </span>
-                  <span className="text-sm">{c.status}</span>
+                    <span className={cn("text-sm", getStatusClass(c.status))}>{c.status}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

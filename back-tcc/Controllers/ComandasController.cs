@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using back_tcc.Data;
 using back_tcc.Models;
 using back_tcc.Extensions;
+using System.ComponentModel.DataAnnotations;
 
 namespace back_tcc.Controllers
 {
@@ -54,8 +55,8 @@ namespace back_tcc.Controllers
             if (userId is null) return Unauthorized();
             comanda.criadopor = userId.Value;
 
-            if ((comanda.tipo.Equals("balcao", StringComparison.OrdinalIgnoreCase) ||
-                 comanda.tipo.Equals("entrega", StringComparison.OrdinalIgnoreCase)) &&
+            if ((comanda.tipo.Equals("Balcao", StringComparison.OrdinalIgnoreCase) ||
+                 comanda.tipo.Equals("Entrega", StringComparison.OrdinalIgnoreCase)) &&
                 string.IsNullOrWhiteSpace(comanda.nome_cliente))
             {
                 return BadRequest("Nome do cliente é obrigatório para balcão ou entrega");
@@ -103,6 +104,39 @@ namespace back_tcc.Controllers
 
             await _context.SaveChangesAsync();
             return NoContent();
+        }
+
+        public class AddItemDto
+        {
+            [Required]
+            public Guid produtoId { get; set; }
+
+            [Range(1, int.MaxValue)]
+            public int quantidade { get; set; }
+        }
+
+        [HttpPost("{id}/itens")]
+        public async Task<ActionResult<Pedido>> AddItem(Guid id, [FromBody] AddItemDto item)
+        {
+            var comanda = await _context.Comanda.FindAsync(id);
+            if (comanda == null) return NotFound();
+
+            var produto = await _context.Products.FindAsync(item.produtoId);
+            if (produto == null) return NotFound("Produto não encontrado");
+
+            var pedido = new Pedido
+            {
+                id = Guid.NewGuid(),
+                comandaid = id,
+                produtoid = item.produtoId,
+                quantidade = item.quantidade,
+                precounit = produto.Price
+            };
+
+            _context.Pedidos.Add(pedido);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetComanda), new { id = comanda.id }, pedido);
         }
     }
 }

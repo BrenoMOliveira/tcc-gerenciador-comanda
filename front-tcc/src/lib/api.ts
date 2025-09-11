@@ -1,6 +1,7 @@
 import { authFetch } from "./auth";
 
-export const API_URL = import.meta.env.VITE_API_URL || "https://back-tcc-production.up.railway.app";
+//export const API_URL = import.meta.env.VITE_API_URL || "https://back-tcc-production.up.railway.app";
+export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5125";
 
 export async function fetchProducts(params?: {
   search?: string;
@@ -192,6 +193,24 @@ export async function createMesaComanda(mesaId: string) {
   });
   if (!res.ok) {
     throw new Error("Failed to create comanda for mesa");
+  }
+  return res.json();
+}
+
+export async function addItemToComanda(
+  comandaId: string,
+  data: { produtoId: string; quantidade: number }
+) {
+  const res = await authFetch(
+    `${API_URL}/api/comandas/${comandaId}/itens`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }
+  );
+  if (!res.ok) {
+    throw new Error("Failed to add item to comanda");
   }
   return res.json();
 }

@@ -24,7 +24,7 @@ public class AuthController(ApplicationDbContext context, IConfiguration configu
             return Unauthorized();
 
         var handler = new JwtSecurityTokenHandler();
-        var key = Convert.FromBase64String(_config["Jwt:Key"]!);
+        var key = Convert.FromBase64String(_config["JWT_KEY"]!);
 
         var descriptor = new SecurityTokenDescriptor
         {

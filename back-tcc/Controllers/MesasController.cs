@@ -80,7 +80,7 @@ namespace back_tcc.Controllers
             var comanda = new Comanda
             {
                 id = Guid.NewGuid(),
-                tipo = "mesa",
+                tipo = "Mesa",
                 status = "Aberta",
                 mesanum = mesa.numero,
                 criadopor = userId.Value

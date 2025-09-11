@@ -23,3 +23,9 @@ export interface Mesa {
   comandaId?: string;
   comanda?: Comanda;
 }
+
+export interface Product {
+  id: string;
+  name: string;
+  price: number;
+}
