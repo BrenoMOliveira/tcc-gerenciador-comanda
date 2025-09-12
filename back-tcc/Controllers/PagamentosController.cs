@@ -84,6 +84,8 @@ namespace back_tcc.Controllers
             decimal totalComanda = comanda.pedidos.Sum(p => p.precounit * p.quantidade)
                 + comanda.subcomandas.Sum(s => s.pedidos.Sum(p => p.precounit * p.quantidade));
             decimal totalPago = comanda.pagamentos.Sum(p => p.valorpago);
+            decimal valorRestante = totalComanda - totalPago;
+            if (valorRestante < 0) valorRestante = 0;
 
             if (totalPago >= totalComanda && comanda.subcomandas.All(s => s.status == "Fechada"))
             {
@@ -111,7 +113,7 @@ namespace back_tcc.Controllers
 
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetByComanda), new { comandaId = dto.comandaid }, pagamento);
+            return Ok(new { pagamento, status = comanda.status, valorRestante });
         }
     }
 }

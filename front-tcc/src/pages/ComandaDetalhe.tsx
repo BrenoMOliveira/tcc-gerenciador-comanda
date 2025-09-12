@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { fetchComanda, fetchMesa, createMesaComanda, fetchProducts, fetchCategories, addItemToComanda, addPagamento, createSubComandas, fetchSubComanda } from "@/lib/api";
+import { fetchComanda, fetchMesa, createMesaComanda, fetchProducts, fetchCategories, addItemToComanda, addPagamento, createSubComandas, fetchSubComanda, fetchSubComandasMesa, fetchSubComandaMesa } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Comanda, Pedido, Mesa, Product, Pagamento, SubComanda } from "@/types";
@@ -27,15 +27,27 @@ export const ComandaDetalhe = () => {
   });
 
   const { data: subData, refetch: refetchSub } = useQuery<SubComanda>({
-    queryKey: ["subcomanda", id, subId],
-    queryFn: () => fetchSubComanda(id as string, subId as string),
-    enabled: isSub && !!id && !!subId,
+    queryKey: ["subcomanda", id, mesaId, subId],
+    queryFn: () =>
+      id
+        ? fetchSubComanda(id as string, subId as string)
+        : fetchSubComandaMesa(mesaId as string, subId as string),
+    enabled: isSub && !!subId && (!!id || !!mesaId),
   });
 
   const parentComandaQuery = useQuery<Comanda>({
-    queryKey: ["comanda", id],
-    queryFn: () => fetchComanda(id as string),
-    enabled: isSub && !!id,
+    queryKey: ["comanda", id || mesaId],
+    queryFn: () =>
+      id
+        ? fetchComanda(id as string)
+        : fetchMesa(mesaId as string).then((m) => m.comanda as Comanda),
+    enabled: isSub && (!!id || !!mesaId),
+  });
+
+  const subComandasMesaQuery = useQuery<SubComanda[]>({
+    queryKey: ["subcomandas-mesa", mesaId],
+    queryFn: () => fetchSubComandasMesa(mesaId as string),
+    enabled: isMesa && !!mesaId,
   });
 
   const mutation = useMutation({
@@ -165,6 +177,7 @@ const productsQuery = useQuery<Product[]>({
     ? mesa?.comanda
     : (data as Comanda);
   const parentComanda = isSub ? parentComandaQuery.data : undefined;
+  const subList = isMesa ? subComandasMesaQuery.data : comanda?.subcomandas;
 
   const totalComanda =
     comanda?.pedidos?.reduce(
@@ -249,19 +262,33 @@ const productsQuery = useQuery<Product[]>({
                 Nenhum item adicionado.
               </p>
             )}
-            {!isSub && comanda?.subcomandas?.length ? (
-              <div className="mt-4 space-y-1">
-                {comanda.subcomandas.map((s) => (
-                  <div
-                    key={s.id}
-                    className="flex justify-between text-sm cursor-pointer"
-                    onClick={() => navigate(`/comandas/${comanda.id}/subcomandas/${s.id}`)}
-                  >
-                    <span>{s.nome_cliente || s.id}</span>
-                    <span>{s.status}</span>
-                  </div>
-                ))}
-              </div>
+            {!isSub && subList?.length ? (
+              <table className="mt-4 w-full text-sm">
+                <thead>
+                  <tr>
+                    <th className="text-left">Cliente</th>
+                    <th className="text-left">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {subList.map((s) => (
+                    <tr
+                      key={s.id}
+                      className="cursor-pointer hover:bg-muted"
+                      onClick={() =>
+                        navigate(
+                          isMesa
+                            ? `/comandas/mesas/${mesaId}/${s.id}`
+                            : `/comandas/${(comanda as Comanda).id}/subcomandas/${s.id}`
+                        )
+                      }
+                    >
+                      <td>{s.nome_cliente || s.id}</td>
+                      <td>{s.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             ) : null}
             <div className="flex flex-wrap gap-2">
               {comanda &&
@@ -517,7 +544,7 @@ const productsQuery = useQuery<Product[]>({
                 onClick={async () => {
                   if (!comanda) return;
                   try {
-                    await addPagamento({
+                    const res = await addPagamento({
                       comandaid: isSub ? (id as string) : comanda.id,
                       valorpago: paymentValue,
                       formapagamento: paymentMethod,
@@ -527,8 +554,13 @@ const productsQuery = useQuery<Product[]>({
                     if (isSub) {
                       await refetchSub();
                       await parentComandaQuery.refetch();
+                      if (mesaId) await subComandasMesaQuery.refetch();
                     } else {
                       await refetch();
+                      if (isMesa) await subComandasMesaQuery.refetch();
+                    }
+                    if (res.status === "Fechada") {
+                      setPaymentOpen(false);
                     }
                   } catch (err) {
                     console.error(err);
@@ -599,6 +631,7 @@ const productsQuery = useQuery<Product[]>({
                     setSplitNames([]);
                     setSplitOpen(false);
                     await refetch();
+                    if (isMesa) await subComandasMesaQuery.refetch();
                   } catch (err) {
                     console.error(err);
                   }

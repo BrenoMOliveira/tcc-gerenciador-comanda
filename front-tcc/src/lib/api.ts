@@ -303,7 +303,7 @@ export async function addPagamento(data: {
   valorpago: number;
   formapagamento: string;
   subcomandaid?: string;
-}): Promise<Pagamento> {
+}): Promise<{ pagamento: Pagamento; status: string; valorRestante: number }> {
   const res = await authFetch(`${API_URL}/api/pagamentos`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -313,7 +313,12 @@ export async function addPagamento(data: {
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.message || "Failed to add payment");
   }
-  return res.json();
+  const result = await res.json();
+  return {
+    pagamento: mapPagamento(result.pagamento),
+    status: result.status,
+    valorRestante: result.valorRestante,
+  };
 }
 
 export async function createSubComandas(
@@ -341,6 +346,33 @@ export async function fetchSubComanda(
 ): Promise<SubComanda> {
   const res = await authFetch(
     `${API_URL}/api/comandas/${comandaId}/subcomandas/${subId}`
+  );
+  if (!res.ok) {
+    throw new Error("Failed to fetch subcomanda");
+  }
+  const data = await res.json();
+  return mapSubcomanda(data);
+}
+
+export async function fetchSubComandasMesa(
+  mesaId: string
+): Promise<SubComanda[]> {
+  const res = await authFetch(
+    `${API_URL}/api/mesas/${mesaId}/subcomandas`
+  );
+  if (!res.ok) {
+    throw new Error("Failed to fetch subcomandas");
+  }
+  const data = await res.json();
+  return data.map(mapSubcomanda);
+}
+
+export async function fetchSubComandaMesa(
+  mesaId: string,
+  subId: string
+): Promise<SubComanda> {
+  const res = await authFetch(
+    `${API_URL}/api/mesas/${mesaId}/subcomandas/${subId}`
   );
   if (!res.ok) {
     throw new Error("Failed to fetch subcomanda");

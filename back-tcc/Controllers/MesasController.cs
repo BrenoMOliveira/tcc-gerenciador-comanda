@@ -93,5 +93,42 @@ namespace back_tcc.Controllers
 
             return CreatedAtAction(nameof(GetMesa), new { id = mesa.id }, comanda);
         }
+
+        [HttpGet("{id}/subcomandas")]
+        public async Task<ActionResult<IEnumerable<SubComanda>>> GetSubcomandasMesa(Guid id)
+        {
+            var mesa = await _context.Mesas.FirstOrDefaultAsync(m => m.id == id);
+            if (mesa == null) return NotFound();
+
+            var comanda = await _context.Comanda
+                .Include(c => c.subcomandas)
+                    .ThenInclude(s => s.pedidos)
+                .Include(c => c.subcomandas)
+                    .ThenInclude(s => s.pagamentos)
+                .FirstOrDefaultAsync(c => c.mesanum == mesa.numero && c.status != "Fechada");
+
+            if (comanda == null) return new List<SubComanda>();
+
+            return comanda.subcomandas;
+        }
+
+        [HttpGet("{id}/subcomandas/{subId}")]
+        public async Task<ActionResult<SubComanda>> GetSubcomandaMesa(Guid id, Guid subId)
+        {
+            var mesa = await _context.Mesas.FirstOrDefaultAsync(m => m.id == id);
+            if (mesa == null) return NotFound();
+
+            var comanda = await _context.Comanda.FirstOrDefaultAsync(c => c.mesanum == mesa.numero && c.status != "Fechada");
+            if (comanda == null) return NotFound("Comanda nao encontrada");
+
+            var sub = await _context.SubComandas
+                .Include(s => s.pedidos)
+                .Include(s => s.pagamentos)
+                .FirstOrDefaultAsync(s => s.comandaid == comanda.id && s.id == subId);
+
+            if (sub == null) return NotFound("Subcomanda nao encontrada");
+
+            return sub;
+        }
     }
 }
