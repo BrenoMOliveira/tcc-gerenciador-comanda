@@ -178,6 +178,7 @@ const productsQuery = useQuery<Product[]>({
     : (data as Comanda);
   const parentComanda = isSub ? parentComandaQuery.data : undefined;
   const subList = isMesa ? subComandasMesaQuery.data : comanda?.subcomandas;
+  const hasSubcomandas = !isSub && !!subList?.length;
 
   const totalComanda =
     comanda?.pedidos?.reduce(
@@ -241,26 +242,30 @@ const productsQuery = useQuery<Product[]>({
                 </p>
               )}
             </div>
-            {comanda?.pedidos?.length ? (
-              <div className="space-y-2">
-                {comanda.pedidos.map((p: Pedido) => {
-                  const prodName = allProductsQuery.data?.find((prod) => prod.id === p.produtoId)?.name || p.produtoId;
-                  return (
-                    <div
-                      key={p.id}
-                      className="flex border-b border-border py-1"
-                    >
-                      <span>
-                        {p.quantidade}x {prodName}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Nenhum item adicionado.
-              </p>
+            {!hasSubcomandas && (
+              comanda?.pedidos?.length ? (
+                <div className="space-y-2">
+                  {comanda.pedidos.map((p: Pedido) => {
+                    const prodName =
+                      allProductsQuery.data?.find((prod) => prod.id === p.produtoId)?.name ||
+                      p.produtoId;
+                    return (
+                      <div
+                        key={p.id}
+                        className="flex border-b border-border py-1"
+                      >
+                        <span>
+                          {p.quantidade}x {prodName}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Nenhum item adicionado.
+                </p>
+              )
             )}
             {!isSub && subList?.length ? (
               <table className="mt-4 w-full text-sm">
@@ -291,24 +296,25 @@ const productsQuery = useQuery<Product[]>({
               </table>
             ) : null}
             <div className="flex flex-wrap gap-2">
-              {comanda &&
+              {(!hasSubcomandas || isSub) &&
+                comanda &&
                 (comanda.status.toLowerCase() === "aberta" ||
                   !comanda.pedidos?.length) && (
                   <Button onClick={() => setOpen(true)}>Novo Pedido</Button>
                 )}
-              {comanda?.pedidos?.length ? (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={() => setConferenceOpen(true)}
-                  >
-                    Conferência
-                  </Button>
-                  <Button onClick={() => setPaymentOpen(true)}>
-                    Fechar Comanda
-                  </Button>
-                </>
-              ) : null}
+              {(((comanda?.pedidos?.length ?? 0) > 0) || hasSubcomandas) && (
+                <Button
+                  variant="outline"
+                  onClick={() => setConferenceOpen(true)}
+                >
+                  Conferência
+                </Button>
+              )}
+              {((isSub || !hasSubcomandas) && (comanda?.pedidos?.length ?? 0) > 0) && (
+                <Button onClick={() => setPaymentOpen(true)}>
+                  Fechar Comanda
+                </Button>
+              )}
               {isMesa && !isSub && comanda && (
                 <Button
                   variant="secondary"
