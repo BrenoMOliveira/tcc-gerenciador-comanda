@@ -74,6 +74,7 @@ export const ComandaDetalhe = () => {
   const [paymentValue, setPaymentValue] = useState(0);
   const [splitName, setSplitName] = useState("");
   const [splitNames, setSplitNames] = useState<string[]>([]);
+  const [saldoOverride, setSaldoOverride] = useState<number | null>(null);
 
   const categoriesQuery = useQuery<Category[]>({
     queryKey: ["categories"],
@@ -99,6 +100,12 @@ const productsQuery = useQuery<Product[]>({
       }));
     }
   }, [productsQuery.data]);
+
+  useEffect(() => {
+    if (!paymentOpen) {
+      setSaldoOverride(null);
+    }
+  }, [paymentOpen]);
 
   const handleOpenChange = (o: boolean) => {
     if (!o) {
@@ -187,7 +194,8 @@ const productsQuery = useQuery<Product[]>({
     ) || 0;
   const totalPago =
     comanda?.pagamentos?.reduce((acc, p) => acc + p.valorpago, 0) || 0;
-  const saldo = totalComanda - totalPago;
+  const saldoCalculado = Math.max(totalComanda - totalPago, 0);
+  const saldo = saldoOverride ?? saldoCalculado;
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -549,27 +557,67 @@ const productsQuery = useQuery<Product[]>({
               <Button
                 onClick={async () => {
                   if (!comanda) return;
+                  const comandaIdForPayment = isSub
+                    ? parentComanda?.id ??
+                      (comanda as SubComanda | undefined)?.comandaid ??
+                      subData?.comandaid ??
+                      (typeof id === "string" ? id : undefined)
+                    : (comanda as Comanda).id;
+
+                  if (!comandaIdForPayment) {
+                    console.error(
+                      "ID da comanda não disponível para registrar pagamento."
+                    );
+                    return;
+                  }
+                  let shouldClose = false;
+                  let shouldNavigate = false;
                   try {
                     const res = await addPagamento({
-                      comandaid: isSub ? (id as string) : comanda.id,
+                      comandaid: comandaIdForPayment,
                       valorpago: paymentValue,
                       formapagamento: paymentMethod,
                       subcomandaid: isSub ? subId : undefined,
                     });
+                    const novoSaldo = isSub
+                      ? res.valorRestanteSubcomanda ?? res.valorRestante
+                      : res.valorRestante;
+                    if (typeof novoSaldo === "number" && !Number.isNaN(novoSaldo)) {
+                      setSaldoOverride(Math.max(novoSaldo, 0));
+                    }
                     setPaymentValue(0);
+                    const isClosed = (status?: string) =>
+                      status ? ["fechada", "paga"].includes(status.toLowerCase()) : false;
+                    shouldClose =
+                      isClosed(res.status) || (isSub && isClosed(res.statusSubcomanda));
+                    shouldNavigate = Boolean(
+                      res.mesaLiberada && (isMesa || (isSub && mesaId))
+                    );
+                    const refetchPromises: Promise<unknown>[] = [];
                     if (isSub) {
-                      await refetchSub();
-                      await parentComandaQuery.refetch();
-                      if (mesaId) await subComandasMesaQuery.refetch();
+                     refetchPromises.push(refetchSub());
+                      refetchPromises.push(parentComandaQuery.refetch());
+                      if (mesaId) {
+                        refetchPromises.push(subComandasMesaQuery.refetch());
+                      }
                     } else {
-                      await refetch();
-                      if (isMesa) await subComandasMesaQuery.refetch();
+                      refetchPromises.push(refetch());
+                      if (isMesa) {
+                        refetchPromises.push(subComandasMesaQuery.refetch());
+                      }
                     }
-                    if (res.status === "Fechada") {
-                      setPaymentOpen(false);
-                    }
+                    await Promise.all(refetchPromises);
+                    setSaldoOverride(null);
                   } catch (err) {
                     console.error(err);
+                  }finally {
+                    if (shouldClose) {
+                      setPaymentOpen(false);
+                    }
+
+                    if (shouldNavigate) {
+                      navigate("/comandas");
+                    }
                   }
                 }}
               >

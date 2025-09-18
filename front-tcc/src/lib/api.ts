@@ -173,9 +173,19 @@ interface PagamentoApi {
   comandaid: string;
   valorpago: number;
   formapagamento: string;
-  pagamentoem?: string;
+  pagoem?: string;
   subcomandaid?: string;
 }
+
+interface AddPagamentoResponseApi {
+  pagamento: PagamentoApi;
+  status: string;
+  statusSubcomanda?: string;
+  valorRestante: number;
+  valorRestanteSubcomanda?: number | null;
+  mesaLiberada?: boolean;
+}
+
 
 interface SubComandaApi {
   id: string;
@@ -204,7 +214,7 @@ function mapPagamento(p: PagamentoApi): Pagamento {
     comandaid: p.comandaid,
     valorpago: p.valorpago,
     formapagamento: p.formapagamento,
-    pagoem: p.pagamentoem,
+    pagoem: p.pagoem,
     subcomandaid: p.subcomandaid,
   };
 }
@@ -303,7 +313,14 @@ export async function addPagamento(data: {
   valorpago: number;
   formapagamento: string;
   subcomandaid?: string;
-}): Promise<{ pagamento: Pagamento; status: string; valorRestante: number }> {
+}): Promise<{
+  pagamento: Pagamento;
+  status: string;
+  statusSubcomanda?: string;
+  valorRestante: number;
+  valorRestanteSubcomanda?: number;
+  mesaLiberada?: boolean;
+}> {
   const res = await authFetch(`${API_URL}/api/pagamentos`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -313,11 +330,18 @@ export async function addPagamento(data: {
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.message || "Failed to add payment");
   }
-  const result = await res.json();
+  const result: AddPagamentoResponseApi = await res.json();
   return {
     pagamento: mapPagamento(result.pagamento),
     status: result.status,
+    statusSubcomanda: result.statusSubcomanda,
     valorRestante: result.valorRestante,
+    valorRestanteSubcomanda:
+      result.valorRestanteSubcomanda !== undefined &&
+      result.valorRestanteSubcomanda !== null
+        ? result.valorRestanteSubcomanda
+        : undefined,
+    mesaLiberada: result.mesaLiberada ?? false,
   };
 }
 
