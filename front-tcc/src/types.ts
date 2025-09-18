@@ -55,3 +55,42 @@ export interface SubComanda {
   pagamentos?: Pagamento[];
   subcomandas?: SubComanda[];
 }
+
+export interface DashboardStockItem {
+  productId: string;
+  product: string;
+  category: string;
+  quantity: number;
+  status: "Baixo Estoque" | "Fora de Estoque";
+}
+
+export interface SalesSummary {
+  totalOrders: number;
+  totalValue: number;
+  totalOrdersChange: number;
+  totalValueChange: number;
+}
+
+export interface FinancialMetric {
+  value: number;
+  variation: number;
+  isMock?: boolean;
+}
+
+export interface FinancialSummary {
+  cashFlow: FinancialMetric;
+  totalRevenue: FinancialMetric;
+  expenses: FinancialMetric;
+  netProfit: FinancialMetric;
+  comparisonPeriodDays: number;
+}
+
+export interface CashFlowPoint {
+  date: string;
+  value: number;
+}
+
+export interface CashFlowSeries {
+  days: number;
+  points: CashFlowPoint[];
+}

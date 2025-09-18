@@ -1,8 +1,8 @@
 import { authFetch } from "./auth";
-import { Product, Comanda, Mesa, Pedido, Pagamento, SubComanda } from "@/types";
+import { Product, Comanda, Mesa, Pedido, Pagamento, SubComanda, DashboardStockItem, SalesSummary, FinancialSummary, CashFlowSeries } from "@/types";
 
-export const API_URL = import.meta.env.VITE_API_URL || "https://back-tcc-production.up.railway.app";
-//export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5125";
+//export const API_URL = import.meta.env.VITE_API_URL || "https://back-tcc-production.up.railway.app";
+export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5125";
 
 export async function fetchProducts(params?: {
   search?: string;
@@ -403,4 +403,45 @@ export async function fetchSubComandaMesa(
   }
   const data = await res.json();
   return mapSubcomanda(data);
+}
+
+export async function fetchDashboardCriticalStock(): Promise<DashboardStockItem[]> {
+  const res = await authFetch(`${API_URL}/api/dashboard/critical-stock`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch critical stock");
+  }
+  return res.json();
+}
+
+export async function fetchLastDaySales(): Promise<SalesSummary> {
+  const res = await authFetch(`${API_URL}/api/dashboard/sales/last-day`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch last day sales summary");
+  }
+  return res.json();
+}
+
+export async function fetchFinancialSummary(params?: { comparisonPeriodDays?: number }): Promise<FinancialSummary> {
+  const query = new URLSearchParams();
+  if (params?.comparisonPeriodDays) {
+    query.set("comparisonPeriodDays", String(params.comparisonPeriodDays));
+  }
+  const res = await authFetch(
+    `${API_URL}/api/dashboard/financial-summary${query.toString() ? `?${query.toString()}` : ""}`
+  );
+  if (!res.ok) {
+    throw new Error("Failed to fetch financial summary");
+  }
+  return res.json();
+}
+
+export async function fetchCashFlowSeries(days = 7): Promise<CashFlowSeries> {
+  const validDays = days === 30 ? 30 : 7;
+  const res = await authFetch(
+    `${API_URL}/api/dashboard/cashflow-trend?days=${validDays}`
+  );
+  if (!res.ok) {
+    throw new Error("Failed to fetch cash flow series");
+  }
+  return res.json();
 }

@@ -1,98 +1,255 @@
-import { MetricCard } from "@/components/dashboard/MetricCard";
-import { CashFlowChart } from "@/components/dashboard/CashFlowChart";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useMemo } from "react"
+import { Link } from "react-router-dom"
+import { useQuery } from "@tanstack/react-query"
+import { ArrowDownRight, ArrowUpRight } from "lucide-react"
+import { MetricCard } from "@/components/dashboard/MetricCard"
+import { CashFlowChart } from "@/components/dashboard/CashFlowChart"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { fetchCashFlowSeries, fetchDashboardCriticalStock, fetchFinancialSummary, fetchLastDaySales } from "@/lib/api"
+import { cn, formatCurrency, formatNumber, formatPercentage, getTrendFromValue, Trend } from "@/lib/utils"
 
-const mockStockData = [
-  { produto: "Tomates", categoria: "Complementos", quantidade: "10 uni" },
-  { produto: "Frango", categoria: "Carnes", quantidade: "5 uni" },
-  { produto: "Coca", categoria: "Bebidas", quantidade: "12 uni" },
-];
+const trendClassMap: Record<Trend, string> = {
+  positive: "text-success",
+  negative: "text-destructive",
+  neutral: "text-muted-foreground",
+}
+
+const ChangeIndicator = ({ value }: { value?: number }) => {
+  if (value === undefined) {
+    return <span className="text-sm text-muted-foreground">--</span>
+  }
+
+  const trend = getTrendFromValue(value)
+  const Icon =
+    trend === "positive"
+      ? ArrowUpRight
+      : trend === "negative"
+        ? ArrowDownRight
+        : null
+
+  return (
+    <span className={cn("flex items-center text-sm font-medium", trendClassMap[trend])}>
+      {Icon ? <Icon className="mr-1.5 h-4 w-4" /> : null}
+      {formatPercentage(value, 1)}
+    </span>
+  )
+}
+
+const StockSkeletonRow = () => (
+  <div className="grid grid-cols-3 gap-4 text-sm">
+    <div className="h-4 w-28 rounded bg-muted animate-pulse" />
+    <div className="h-4 w-20 rounded bg-muted animate-pulse" />
+    <div className="h-4 w-16 rounded bg-muted animate-pulse" />
+  </div>
+)
+
+const SalesSkeleton = () => (
+  <div className="grid gap-6 sm:grid-cols-2">
+    {Array.from({ length: 2 }).map((_, index) => (
+      <div key={index} className="space-y-2">
+        <div className="h-4 w-24 rounded bg-muted animate-pulse" />
+        <div className="h-9 w-24 rounded bg-muted animate-pulse" />
+        <div className="h-4 w-16 rounded bg-muted animate-pulse" />
+      </div>
+    ))}
+  </div>
+)
 
 export const Dashboard = () => {
+  const { data: financialSummary, isLoading: financialLoading } = useQuery({
+    queryKey: ["dashboard", "financial-summary"],
+    queryFn: () => fetchFinancialSummary(),
+  })
+
+  const comparisonDays = financialSummary?.comparisonPeriodDays ?? 7
+
+  const { data: salesSummary, isLoading: salesLoading } = useQuery({
+    queryKey: ["dashboard", "sales-last-day"],
+    queryFn: fetchLastDaySales,
+  })
+
+  const { data: stockAlerts, isLoading: stockLoading } = useQuery({
+    queryKey: ["dashboard", "critical-stock"],
+    queryFn: fetchDashboardCriticalStock,
+  })
+
+  const { data: cashFlowSeries, isLoading: cashFlowLoading } = useQuery({
+    queryKey: ["dashboard", "cashflow-series", comparisonDays],
+    queryFn: () => fetchCashFlowSeries(comparisonDays),
+  })
+
+  const chartData = useMemo(
+    () =>
+      cashFlowSeries?.points.map((point) => ({
+        date: point.date,
+        value: point.value,
+      })) ?? [],
+    [cashFlowSeries]
+  )
+
+  const expensesHelper = financialSummary?.expenses.isMock
+    ? "Valor mock temporário até a implementação das despesas."
+    : undefined
+
   return (
     <div className="p-4 sm:p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
-        <p className="text-muted-foreground">Visão geral das operações do restaurante</p>
+        <p className="text-muted-foreground">
+          Visão geral das operações do restaurante
+        </p>
       </div>
 
-      {/* Cash Flow Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid gap-6 lg:grid-cols-1">
         <div className="lg:col-span-2">
-          <CashFlowChart />
+          <CashFlowChart
+            data={chartData}
+            totalValue={financialSummary?.cashFlow.value ?? 0}
+            variation={financialSummary?.cashFlow.variation}
+            periodDays={comparisonDays}
+            loading={financialLoading || cashFlowLoading}
+          />
         </div>
-        <div className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 hidden">
           <MetricCard
             title="Receita total"
-            value="R$ 10500,00"
-            change="+10%"
-            changeType="positive"
+            value={formatCurrency(financialSummary?.totalRevenue.value ?? 0)}
+            change={
+              financialSummary?.totalRevenue.variation !== undefined
+                ? formatPercentage(financialSummary.totalRevenue.variation, 1)
+                : undefined
+            }
+            changeType={getTrendFromValue(financialSummary?.totalRevenue.variation)}
+            description={`Comparado aos ${comparisonDays} dias anteriores`}
+            isLoading={financialLoading}
           />
           <MetricCard
             title="Despesas"
-            value="R$ 8155,00"
-            change="-5%"
-            changeType="negative"
+            value={formatCurrency(financialSummary?.expenses.value ?? 0)}
+            change={
+              financialSummary?.expenses.variation !== undefined
+                ? formatPercentage(financialSummary.expenses.variation, 1)
+                : undefined
+            }
+            changeType={getTrendFromValue(financialSummary?.expenses.variation)}
+            description={`Comparado aos ${comparisonDays} dias anteriores`}
+            helperText={expensesHelper}
+            isLoading={financialLoading}
           />
           <MetricCard
             title="Lucro líquido"
-            value="R$ 2345,00"
-            change="+12%"
-            changeType="positive"
+            value={formatCurrency(financialSummary?.netProfit.value ?? 0)}
+            change={
+              financialSummary?.netProfit.variation !== undefined
+                ? formatPercentage(financialSummary.netProfit.variation, 1)
+                : undefined
+            }
+            changeType={getTrendFromValue(financialSummary?.netProfit.variation)}
+            description={`Comparado aos ${comparisonDays} dias anteriores`}
+            isLoading={financialLoading}
           />
         </div>
       </div>
 
-      {/* Stock and Sales Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Stock Summary */}
+      <div className="grid gap-6 lg:grid-cols-2">
         <Card className="dashboard-card">
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
             <CardTitle className="text-lg font-semibold">Estoque</CardTitle>
-            <Button variant="outline" size="sm">
-              Ver todos
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/produtos">Ver todos</Link>
             </Button>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-4 text-sm font-medium text-muted-foreground border-b pb-2">
-                <span>Produto</span>
-                <span>Categoria</span>
-                <span>Quantidade</span>
-              </div>
-              {mockStockData.map((item, index) => (
-                <div key={index} className="grid grid-cols-3 gap-4 text-sm">
-                  <span className="font-medium">{item.produto}</span>
-                  <span className="text-primary">{item.categoria}</span>
-                  <span>{item.quantidade}</span>
-                </div>
-              ))}
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-3 gap-4 text-sm font-medium text-muted-foreground border-b pb-2">
+              <span>Produto</span>
+              <span>Categoria</span>
+              <span>Quantidade</span>
             </div>
+            {stockLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <StockSkeletonRow key={index} />
+                ))}
+              </div>
+            ) : stockAlerts && stockAlerts.length > 0 ? (
+              <div className="space-y-3">
+                {stockAlerts.map((item) => (
+                  <div key={item.productId} className="grid grid-cols-3 gap-4 text-sm">
+                    <div className="font-medium text-foreground">{item.product}</div>
+                    <div className="text-muted-foreground">{item.category}</div>
+                    <div className="flex flex-col gap-1">
+                      <span
+                        className={cn(
+                          "font-semibold",
+                          item.status === "Fora de Estoque"
+                            ? "text-destructive"
+                            : "text-warning"
+                        )}
+                      >
+                        {formatNumber(item.quantity)} un
+                      </span>
+                      <span
+                        className={cn(
+                          "inline-flex items-center",
+                          item.status === "Fora de Estoque"
+                            ? "status-error"
+                            : "status-warning"
+                        )}
+                      >
+                        {item.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-success/40 bg-success/10 px-4 py-6 text-sm text-success">
+                Todos os produtos estão com níveis de estoque seguros.
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Sales Summary */}
         <Card className="dashboard-card">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold">Vendas do último dia</CardTitle>
+            <CardTitle className="text-lg font-semibold">
+              Vendas do último dia
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-2">Total</p>
-                <p className="text-2xl font-bold">50</p>
-                <p className="text-sm text-success font-medium">+5%</p>
+            {salesLoading ? (
+              <SalesSkeleton />
+            ) : (
+              <div className="space-y-6">
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Total de vendas
+                    </p>
+                    <p className="text-3xl font-bold text-foreground tracking-tight">
+                      {formatNumber(salesSummary?.totalOrders ?? 0)}
+                    </p>
+                    <ChangeIndicator value={salesSummary?.totalOrdersChange} />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Valor total
+                    </p>
+                    <p className="text-3xl font-bold text-foreground tracking-tight">
+                      {formatCurrency(salesSummary?.totalValue ?? 0)}
+                    </p>
+                    <ChangeIndicator value={salesSummary?.totalValueChange} />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Comparado ao dia anterior
+                </p>
               </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-2">Valor total</p>
-                <p className="text-2xl font-bold">R$ 2250,00</p>
-                <p className="text-sm text-success font-medium">+15%</p>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>
     </div>
-  );
-};
+  )
+}

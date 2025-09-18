@@ -306,8 +306,9 @@ const productsQuery = useQuery<Product[]>({
             <div className="flex flex-wrap gap-2">
               {(!hasSubcomandas || isSub) &&
                 comanda &&
-                (comanda.status.toLowerCase() === "aberta" ||
-                  !comanda.pedidos?.length) && (
+                (["aberta", "ocupada"].includes(
+                  comanda.status.toLowerCase()
+                ) || !comanda.pedidos?.length) && (
                   <Button onClick={() => setOpen(true)}>Novo Pedido</Button>
                 )}
               {(((comanda?.pedidos?.length ?? 0) > 0) || hasSubcomandas) && (
