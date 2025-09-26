@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using back_tcc.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +13,7 @@ var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION")
     ?? throw new InvalidOperationException("DB_CONNECTION not configured.");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
+builder.Services.AddScoped<IStockService, StockService>();
 builder.Services
     .AddControllers()
     .AddJsonOptions(options =>

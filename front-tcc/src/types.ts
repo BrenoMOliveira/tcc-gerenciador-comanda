@@ -31,6 +31,10 @@ export interface Product {
   id: string;
   name: string;
   price: number;
+  categoryProductId?: string;
+  stockQuantity?: number;
+  minimoAlerta?: number;
+  availability?: string;
 }
 
 export interface Pagamento {
