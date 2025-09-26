@@ -7,6 +7,8 @@ import { Comanda, Pedido, Mesa, Product, Pagamento, SubComanda } from "@/types";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
 
 interface Category {
   id: string;
@@ -67,6 +69,7 @@ export const ComandaDetalhe = () => {
   >({});
   const [submittedCategories, setSubmittedCategories] = useState<string[]>([]);
   const [productsMap, setProductsMap] = useState<Record<string, Product>>({});
+  const [modalError, setModalError] = useState<string | null>(null);
   const [conferenceOpen, setConferenceOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [splitOpen, setSplitOpen] = useState(false);
@@ -86,7 +89,7 @@ export const ComandaDetalhe = () => {
     queryFn: () => fetchProducts(),
   });
 
-const productsQuery = useQuery<Product[]>({
+  const productsQuery = useQuery<Product[]>({
     queryKey: ["products", selectedCategory?.id],
     queryFn: () => fetchProducts({ categoryId: selectedCategory?.id }),
     enabled: modalStep === "items" && !!selectedCategory?.id,
@@ -115,6 +118,7 @@ const productsQuery = useQuery<Product[]>({
       setSubmittedCategories([]);
       setProductsMap({});
     }
+    setModalError(null);
     setOpen(o);
   };
 
@@ -122,11 +126,32 @@ const productsQuery = useQuery<Product[]>({
     return categoryItems[catId]?.[prodId] || 0;
   };
 
-  const updateQuantity = (catId: string, prodId: string, qtd: number) => {
-    if (qtd < 0) qtd = 0;
+  const getMaxStockValue = (product?: Product) => {
+    if (!product) return undefined;
+    const stock = product.stockQuantity;
+    if (typeof stock !== "number" || Number.isNaN(stock)) return undefined;
+    return Math.max(0, Math.floor(stock));
+  };
+
+  const updateQuantity = (
+    catId: string,
+    prodId: string,
+    qtd: number,
+    productOverride?: Product
+  ) => {
+    const numericDesired = Number.isFinite(qtd) ? qtd : 0;
+    let normalizedQty = Math.max(0, Math.floor(numericDesired));
+
+    const product = productOverride ?? productsMap[prodId];
+    const maxStock = getMaxStockValue(product);
+
+    if (maxStock !== undefined && normalizedQty > maxStock) {
+      normalizedQty = maxStock;
+    }
+
     setCategoryItems((prev) => ({
       ...prev,
-      [catId]: { ...prev[catId], [prodId]: qtd },
+      [catId]: { ...(prev[catId] ?? {}), [prodId]: normalizedQty },
     }));
   };
 
@@ -147,6 +172,7 @@ const productsQuery = useQuery<Product[]>({
       ? (data as Mesa).comanda
       : (data as Comanda);
     if (!comandaData) return;
+    setModalError(null);
     try {
       for (const catId of submittedCategories) {
         const items = categoryItems[catId] || {};
@@ -171,6 +197,11 @@ const productsQuery = useQuery<Product[]>({
       handleOpenChange(false);
     } catch (err) {
       console.error("Erro ao confirmar pedido", err);
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Não foi possível adicionar os itens. Verifique o estoque e tente novamente.";
+      setModalError(message);
     }
   };
 
@@ -336,8 +367,14 @@ const productsQuery = useQuery<Product[]>({
           </CardContent>
         </Card>
       )}
-     <Dialog open={open} onOpenChange={handleOpenChange}>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="max-h-[80vh] overflow-y-auto">
+          {modalError && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertTitle>Erro ao adicionar itens</AlertTitle>
+              <AlertDescription>{modalError}</AlertDescription>
+            </Alert>
+          )}
           {modalStep === "categories" && (
             <>
               <DialogHeader>
@@ -371,41 +408,105 @@ const productsQuery = useQuery<Product[]>({
               <div className="space-y-4">
                 {productsQuery.data?.map((prod) => {
                   const qtd = getQuantity(selectedCategory.id, prod.id);
+                  const availabilityLabel = prod.availability;
+                  const isOutOfStock =
+                    availabilityLabel?.toLowerCase() === "fora de estoque";
+                  const maxStock = getMaxStockValue(prod);
+                  const reachedLimit =
+                    maxStock !== undefined && qtd >= maxStock;
+                  const stockLimitMessage =
+                    !isOutOfStock && reachedLimit && maxStock !== undefined
+                      ? `Limite de Estoque atingido. Quantidade máxima disponível: ${maxStock} unidades.`
+                      : null;
                   return (
-                    <div key={prod.id} className="flex items-center justify-between">
-                      <span>{prod.name}</span>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          size="icon"
-                          variant="outline"
-                          onClick={() =>
-                            updateQuantity(selectedCategory.id, prod.id, qtd - 1)
-                          }
-                        >
-                          -
-                        </Button>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={qtd === 0 ? "" : qtd}
-                          onChange={(e) =>
-                            updateQuantity(
-                              selectedCategory.id,
-                              prod.id,
-                              e.target.value === "" ? 0 : Number(e.target.value)
-                            )
-                          }
-                          className="w-16 text-center"
-                        />
-                        <Button
-                          size="icon"
-                          variant="outline"
-                          onClick={() =>
-                            updateQuantity(selectedCategory.id, prod.id, qtd + 1)
-                          }
-                        >
-                          +
-                        </Button>
+                    <div
+                      key={prod.id}
+                      className={cn(
+                        "rounded-md border border-transparent p-3 transition-colors",
+                        isOutOfStock ? "bg-muted/60" : "hover:bg-muted/40"
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex flex-col">
+                          <span className="font-medium">{prod.name}</span>
+                          {availabilityLabel && (
+                            <span
+                              className={cn(
+                                "text-xs",
+                                isOutOfStock
+                                  ? "text-destructive"
+                                  : "text-muted-foreground"
+                              )}
+                            >
+                              {availabilityLabel}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            onClick={() =>
+                              updateQuantity(
+                                selectedCategory.id,
+                                prod.id,
+                                qtd - 1,
+                                prod
+                              )
+                            }
+                            disabled={qtd <= 0}
+                            aria-label={`Remover ${prod.name}`}
+                          >
+                            -
+                          </Button>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={maxStock ?? undefined}
+                            step={1}
+                            value={qtd === 0 ? "" : qtd}
+                            onChange={(e) =>
+                              updateQuantity(
+                                selectedCategory.id,
+                                prod.id,
+                                e.target.value === ""
+                                  ? 0
+                                  : Number(e.target.value),
+                                prod
+                              )
+                            }
+                            className="w-16 text-center"
+                            disabled={isOutOfStock}
+                          />
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            onClick={() =>
+                              updateQuantity(
+                                selectedCategory.id,
+                                prod.id,
+                                qtd + 1,
+                                prod
+                              )
+                            }
+                            disabled={isOutOfStock || reachedLimit}
+                            aria-label={`Adicionar ${prod.name}`}
+                            title={
+                              isOutOfStock
+                                ? "Produto fora de estoque"
+                                : reachedLimit
+                                ? `Limite de estoque: ${maxStock} unidades`
+                                : undefined
+                            }
+                          >
+                            +
+                          </Button>
+                        </div>
+                        {stockLimitMessage && (
+                          <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700">
+                            {stockLimitMessage}
+                          </p>
+                        )}
                       </div>
                     </div>
                   );
@@ -437,44 +538,105 @@ const productsQuery = useQuery<Product[]>({
                       {Object.entries(items).map(([prodId, qtd]) => {
                         if (qtd <= 0) return null;
                         const prod = productsMap[prodId];
+                        const availabilityLabel = prod?.availability;
+                        const isOutOfStock =
+                          availabilityLabel?.toLowerCase() === "fora de estoque";
+                        const maxStock = getMaxStockValue(prod);
+                        const reachedLimit =
+                          maxStock !== undefined && qtd >= maxStock;
+                        const stockLimitMessage =
+                          !isOutOfStock && reachedLimit && maxStock !== undefined
+                            ? `Limite de Estoque atingido. Quantidade máxima disponível: ${maxStock} unidades.`
+                            : null;
                         return (
                           <div
                             key={prodId}
-                            className="flex items-center justify-between"
+                            className={cn(
+                              "rounded-md border border-transparent p-3",
+                              isOutOfStock && "bg-muted/60"
+                            )}
                           >
-                            <span>{prod?.name || prodId}</span>
-                            <div className="flex items-center space-x-2">
-                              <Button
-                                size="icon"
-                                variant="outline"
-                                onClick={() =>
-                                  updateQuantity(catId, prodId, qtd - 1)
-                                }
-                              >
-                                -
-                              </Button>
-                              <Input
-                                type="number"
-                                min={0}
-                                value={qtd === 0 ? "" : qtd}
-                                onChange={(e) =>
-                                  updateQuantity(
-                                    catId,
-                                    prodId,
-                                    e.target.value === "" ? 0 : Number(e.target.value)
-                                  )
-                                }
-                                className="w-16 text-center"
-                              />
-                              <Button
-                                size="icon"
-                                variant="outline"
-                                onClick={() =>
-                                  updateQuantity(catId, prodId, qtd + 1)
-                                }
-                              >
-                                +
-                              </Button>
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="flex flex-col">
+                                <span>{prod?.name || prodId}</span>
+                                {availabilityLabel && (
+                                  <span
+                                    className={cn(
+                                      "text-xs",
+                                      isOutOfStock
+                                        ? "text-destructive"
+                                        : "text-muted-foreground"
+                                    )}
+                                  >
+                                    {availabilityLabel}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Button
+                                  size="icon"
+                                  variant="outline"
+                                  onClick={() =>
+                                    updateQuantity(
+                                      catId,
+                                      prodId,
+                                      qtd - 1,
+                                      prod
+                                    )
+                                  }
+                                  disabled={qtd <= 0}
+                                  aria-label={`Remover ${prod?.name || prodId}`}
+                                >
+                                  -
+                                </Button>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  max={maxStock ?? undefined}
+                                  step={1}
+                                  value={qtd === 0 ? "" : qtd}
+                                  onChange={(e) =>
+                                    updateQuantity(
+                                      catId,
+                                      prodId,
+                                      e.target.value === ""
+                                        ? 0
+                                        : Number(e.target.value),
+                                      prod
+                                    )
+                                  }
+                                  className="w-16 text-center"
+                                  disabled={isOutOfStock}
+                                />
+                                <Button
+                                  size="icon"
+                                  variant="outline"
+                                  onClick={() =>
+                                    updateQuantity(
+                                      catId,
+                                      prodId,
+                                      qtd + 1,
+                                      prod
+                                    )
+                                  }
+                                  disabled={isOutOfStock || reachedLimit}
+                                  aria-label={`Adicionar ${prod?.name || prodId}`}
+                                  title={
+                                    isOutOfStock
+                                      ? "Produto fora de estoque"
+                                      : reachedLimit
+                                      ? `Limite de estoque: ${maxStock} unidades`
+                                      : undefined
+                                  }
+                                >
+                                  +
+                                </Button>
+                              </div>
+                              {stockLimitMessage && (
+                                <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700">
+                                  {stockLimitMessage}
+                                </p>
+                              )}
                             </div>
                           </div>
                         );
