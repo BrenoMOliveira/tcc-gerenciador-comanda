@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Edit, Trash2 } from "lucide-react";
-import { fetchProducts, fetchCategories, createProduct, updateProduct, deleteProduct } from "@/lib/api";
+import { Plus, Search, Edit, Trash2, RefreshCcw } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { fetchProducts, fetchCategories, createProduct, updateProduct, deleteProduct, fetchInactiveProducts } from "@/lib/api";
 
 interface Product {
   id: string;
@@ -26,14 +27,31 @@ interface Category {
   name: string;
 }
 
+const capitalizeText = (value: string) => {
+  if (!value) return "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const first = trimmed.charAt(0).toLocaleUpperCase("pt-BR");
+  const rest = trimmed.slice(1).toLocaleLowerCase("pt-BR");
+  return `${first}${rest}`;
+};
+
+const formatProductDisplay = (product: Product): Product => ({
+  ...product,
+  name: capitalizeText(product.name),
+  category: capitalizeText(product.category),
+});
+
 export const Produtos = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [stockFilter, setStockFilter] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
+  const [inactiveProducts, setInactiveProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"ativos" | "inativos">("ativos");
   const [newProduct, setNewProduct] = useState({
     name: "",
     categoryProductId: "",
@@ -43,8 +61,7 @@ export const Produtos = () => {
   });
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
-  const loadProducts = useCallback(async () => {
-  try {
+  const buildProductParams = useCallback(() => {
     const params: {
       search?: string;
       categoryId?: string;
@@ -53,32 +70,54 @@ export const Produtos = () => {
     if (searchTerm) params.search = searchTerm;
     if (categoryFilter && categoryFilter !== "todas") params.categoryId = categoryFilter;
     if (stockFilter && stockFilter !== "todos") params.availabilityId = stockFilter;
-    const list = await fetchProducts(params);
-      setProducts(list);
+    return params;
+  }, [searchTerm, categoryFilter, stockFilter]);
+
+  const loadActiveProducts = useCallback(async () => {
+    try {
+      const list = await fetchProducts(buildProductParams());
+      setProducts(list.map(formatProductDisplay));
     } catch (err) {
       console.error("Erro ao buscar produtos", err);
     }
-  }, [searchTerm, categoryFilter, stockFilter]);
+  },  [buildProductParams]);
 
+  const loadInactiveProducts = useCallback(async () => {
+    try {
+      const list = await fetchInactiveProducts(buildProductParams());
+      setInactiveProducts(list.map(formatProductDisplay));
+    } catch (err) {
+      console.error("Erro ao buscar produtos inativos", err);
+    }
+  }, [buildProductParams]);
 
   useEffect(() => {
     fetchCategories()
-      .then(setCategories)
+      .then((list: Category[]) =>
+        setCategories(list.map((category) => ({
+          ...category,
+          name: capitalizeText(category.name),
+        })))
+      )
       .catch((err) => console.error("Erro ao buscar categorias", err));
   }, []);
 
   useEffect(() => {
     const handler = setTimeout(() => {
-      loadProducts();
+      if (activeTab === "ativos") {
+        loadActiveProducts();
+      } else {
+        loadInactiveProducts();
+      }
     }, 500);
     return () => clearTimeout(handler);
-  }, [loadProducts]);
+  }, [activeTab, loadActiveProducts, loadInactiveProducts]);
 
   const getStatusBadge = (status: string) => {
     const map: Record<string, string> = {
-      "Em Estoque": "status-success",
-      "Baixo Estoque": "status-warning",
-      "Fora de Estoque": "status-error",
+      "Em Estoque": "availability-in-stock",
+      "Baixo Estoque": "availability-low-stock",
+      "Fora de Estoque": "availability-out-of-stock",
     };
     const className = map[status] || "bg-secondary text-secondary-foreground";
     return <Badge className={className}>{status}</Badge>;

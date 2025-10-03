@@ -79,6 +79,16 @@ export const ComandaDetalhe = () => {
   const [splitNames, setSplitNames] = useState<string[]>([]);
   const [saldoOverride, setSaldoOverride] = useState<number | null>(null);
 
+  const formatClientName = (name?: string | null) => {
+    if (!name) return "";
+    return name
+      .toLowerCase()
+      .split(" ")
+      .filter(Boolean)
+      .map((part) => part[0].toUpperCase() + part.slice(1))
+      .join(" ");
+  };
+
   const categoriesQuery = useQuery<Category[]>({
     queryKey: ["categories"],
     queryFn: fetchCategories,
@@ -307,32 +317,37 @@ export const ComandaDetalhe = () => {
               )
             )}
             {!isSub && subList?.length ? (
-              <table className="mt-4 w-full text-sm">
-                <thead>
-                  <tr>
-                    <th className="text-left">Cliente</th>
-                    <th className="text-left">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {subList.map((s) => (
-                    <tr
-                      key={s.id}
-                      className="cursor-pointer hover:bg-muted"
-                      onClick={() =>
-                        navigate(
-                          isMesa
-                            ? `/comandas/mesas/${mesaId}/${s.id}`
-                            : `/comandas/${(comanda as Comanda).id}/subcomandas/${s.id}`
-                        )
-                      }
-                    >
-                      <td>{s.nome_cliente || s.id}</td>
-                      <td>{s.status}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                            <div className="mt-4 w-full overflow-hidden rounded-md border border-border text-sm">
+                <div className="grid grid-cols-[minmax(0,1.5fr)_minmax(0,0.7fr)] gap-x-8 bg-muted/40 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <span>Cliente</span>
+                  <span>Status</span>
+                </div>
+                <div>
+                  {subList.map((s, index) => {
+                    const formattedName = formatClientName(s.nome_cliente) || s.id;
+                    const isLast = index === subList.length - 1;
+                    return (
+                      <div
+                        key={s.id}
+                        className={cn(
+                          "grid cursor-pointer grid-cols-[minmax(0,1.5fr)_minmax(0,0.7fr)] items-start gap-x-8 px-4 py-3 transition-colors hover:bg-muted/60",
+                          !isLast && "border-b border-border/70"
+                        )}
+                        onClick={() =>
+                          navigate(
+                            isMesa
+                              ? `/comandas/mesas/${mesaId}/${s.id}`
+                              : `/comandas/${(comanda as Comanda).id}/subcomandas/${s.id}`
+                          )
+                        }
+                      >
+                        <span className="font-medium text-foreground">{formattedName}</span>
+                        <span className="text-foreground">{s.status}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             ) : null}
             <div className="flex flex-wrap gap-2">
               {(!hasSubcomandas || isSub) &&
@@ -422,7 +437,7 @@ export const ComandaDetalhe = () => {
                     <div
                       key={prod.id}
                       className={cn(
-                        "rounded-md border border-transparent p-3 transition-colors",
+                        "rounded-md border border-transparent bg-muted/30 p-3 transition-colors",
                         isOutOfStock ? "bg-muted/60" : "hover:bg-muted/40"
                       )}
                     >
@@ -502,12 +517,12 @@ export const ComandaDetalhe = () => {
                             +
                           </Button>
                         </div>
-                        {stockLimitMessage && (
-                          <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700">
-                            {stockLimitMessage}
-                          </p>
-                        )}
                       </div>
+                      {stockLimitMessage && (
+                        <p className="mt-2 block w-full rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700">
+                          {stockLimitMessage}
+                        </p>
+                      )}
                     </div>
                   );
                 })}
@@ -552,7 +567,7 @@ export const ComandaDetalhe = () => {
                           <div
                             key={prodId}
                             className={cn(
-                              "rounded-md border border-transparent p-3",
+                              "rounded-md border border-transparent bg-muted/30 p-3",
                               isOutOfStock && "bg-muted/60"
                             )}
                           >
@@ -632,12 +647,12 @@ export const ComandaDetalhe = () => {
                                   +
                                 </Button>
                               </div>
-                              {stockLimitMessage && (
-                                <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700">
-                                  {stockLimitMessage}
-                                </p>
-                              )}
                             </div>
+                            {stockLimitMessage && (
+                              <p className="mt-2 block w-full rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700">
+                                {stockLimitMessage}
+                              </p>
+                            )}
                           </div>
                         );
                       })}

@@ -3,6 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using back_tcc.Data;
 using back_tcc.Models;
 using System.Linq;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace back_tcc.Controllers;
 
@@ -17,6 +20,29 @@ public class ProductsController(ApplicationDbContext context) : ControllerBase
         [FromQuery] string? search,
         [FromQuery] Guid? categoryId,
         [FromQuery] int? availabilityId)
+
+    {
+        var query = ApplyCommonFilters(search, categoryId);
+        query = query.Where(p => p.Ativo);
+
+        var result = await BuildProductResponseAsync(query, availabilityId);
+        return result;
+    }
+
+    [HttpGet("inactive")]
+    public async Task<ActionResult<IEnumerable<Product>>> GetInactiveProducts(
+        [FromQuery] string? search,
+        [FromQuery] Guid? categoryId,
+        [FromQuery] int? availabilityId)
+    {
+        var query = ApplyCommonFilters(search, categoryId);
+        query = query.Where(p => !p.Ativo);
+
+        var result = await BuildProductResponseAsync(query, availabilityId);
+        return result;
+    }
+
+    private IQueryable<Product> ApplyCommonFilters(string? search, Guid? categoryId)
     {
         var query = _context.Products.AsQueryable();
 
@@ -31,7 +57,19 @@ public class ProductsController(ApplicationDbContext context) : ControllerBase
             query = query.Where(p => p.CategoryProductId == categoryId.Value);
         }
 
-        var products = await query.ToListAsync();
+        return query;
+    }
+
+    private async Task<List<Product>> BuildProductResponseAsync(IQueryable<Product> query, int? availabilityId)
+    {
+        var products = await query
+            .OrderBy(p => p.Name)
+            .ToListAsync();
+
+        if (products.Count == 0)
+        {
+            return products;
+        }
 
         var productIds = products.Select(p => p.id).ToList();
         var stocks = await _context.Stocks
@@ -41,7 +79,9 @@ public class ProductsController(ApplicationDbContext context) : ControllerBase
                 a => a.id,
                 (s, a) => new { s.produtoid, s.quantidade, s.minimoalerta, s.disponibilidadeid, AvailabilityName = a.Name })
             .ToDictionaryAsync(x => x.produtoid);
-        var categories = await _context.CategoryProducts.ToDictionaryAsync(c => c.id, c => c.Name);
+        var categories = await _context.CategoryProducts
+            .OrderBy(c => c.Name)
+            .ToDictionaryAsync(c => c.id, c => c.Name);
 
         var result = new List<Product>();
         foreach (var product in products)
@@ -110,6 +150,7 @@ public class ProductsController(ApplicationDbContext context) : ControllerBase
     [HttpPost]
     public async Task<ActionResult<Product>> PostProduct(Product product)
     {
+        product.Ativo = true;
         _context.Products.Add(product);
         await _context.SaveChangesAsync();
 

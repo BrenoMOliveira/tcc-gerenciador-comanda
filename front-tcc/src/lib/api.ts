@@ -22,6 +22,24 @@ export async function fetchProducts(params?: {
   return res.json();
 }
 
+export async function fetchInactiveProducts(params?: {
+  search?: string;
+  categoryId?: string;
+  availabilityId?: string;
+}): Promise<Product[]> {
+  const query = new URLSearchParams();
+  if (params?.search) query.append("search", params.search);
+  if (params?.categoryId) query.append("categoryId", params.categoryId);
+  if (params?.availabilityId) query.append("availabilityId", params.availabilityId);
+  const res = await authFetch(
+    `${API_URL}/api/products/inactive${query.toString() ? `?${query.toString()}` : ""}`
+  );
+  if (!res.ok) {
+    throw new Error("Failed to fetch inactive products");
+  }
+  return res.json();
+}
+
 export async function fetchCategories() {
   const res = await authFetch(`${API_URL}/api/categoryproducts`);
   if (!res.ok) {
