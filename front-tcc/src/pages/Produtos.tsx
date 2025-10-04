@@ -80,7 +80,7 @@ export const Produtos = () => {
     } catch (err) {
       console.error("Erro ao buscar produtos", err);
     }
-  },  [buildProductParams]);
+  }, [buildProductParams]);
 
   const loadInactiveProducts = useCallback(async () => {
     try {
@@ -141,7 +141,7 @@ export const Produtos = () => {
         minimoAlerta: "",
       });
       setOpen(false);
-      await loadProducts();
+      await Promise.all([loadActiveProducts(), loadInactiveProducts()]);
     } catch (err) {
       console.error("Erro ao adicionar produto", err);
     }
@@ -162,7 +162,7 @@ export const Produtos = () => {
       });
       setEditOpen(false);
       setEditingProduct(null);
-      await loadProducts();
+      await Promise.all([loadActiveProducts(), loadInactiveProducts()]);
     } catch (err) {
       console.error("Erro ao atualizar produto", err);
     }
@@ -171,9 +171,26 @@ export const Produtos = () => {
   const handleDeleteProduct = async (id: string) => {
     try {
       await deleteProduct(id);
-      await loadProducts();
+      await Promise.all([loadActiveProducts(), loadInactiveProducts()]);
     } catch (err) {
       console.error("Erro ao deletar produto", err);
+    }
+  };
+
+  const handleReactivateProduct = async (product: Product) => {
+    try {
+      await updateProduct(product.id, {
+        id: product.id,
+        name: product.name,
+        categoryProductId: product.categoryProductId,
+        price: product.price,
+        ativo: true,
+        stockQuantity: product.stockQuantity,
+        minimoAlerta: product.minimoAlerta,
+      });
+      await Promise.all([loadActiveProducts(), loadInactiveProducts()]);
+    } catch (err) {
+      console.error("Erro ao reativar produto", err);
     }
   };
 
@@ -305,52 +322,120 @@ export const Produtos = () => {
         </CardContent>
       </Card>
 
-      {/* Products Table - Desktop */}
-      <Card className="dashboard-card hidden md:block">
-        <CardHeader>
-          <CardTitle>Lista de Produtos</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-auto max-h-[60vh]">
-            <table className="w-full min-w-[600px]">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">
-                    Produtos
-                  </th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">
-                    Categoria
-                  </th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">
-                    Preço
-                  </th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">
-                    Estoque
-                  </th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">
-                    Disponibilidade
-                  </th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">
-                    Ações
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.map((product) => (
-                  <tr key={product.id} className="border-b border-border hover:bg-muted/50">
-                    <td className="py-4 px-4 font-medium">{product.name}</td>
-                    <td className="py-4 px-4 text-primary">{product.category}</td>
-                    <td className="py-4 px-4">
-                      {product.price.toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
-                    </td>
-                    <td className="py-4 px-4">{product.stockQuantity} uni</td>
-                    <td className="py-4 px-4">
-                      {getStatusBadge(product.availability)}
-                    </td>
-                    <td className="py-4 px-4">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as "ativos" | "inativos")}
+        className="space-y-4"
+      >
+        <TabsList className="w-full sm:w-auto">
+          <TabsTrigger value="ativos" className="flex-1 sm:flex-none">
+            Ativos
+          </TabsTrigger>
+          <TabsTrigger value="inativos" className="flex-1 sm:flex-none">
+            Inativos
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="ativos" className="space-y-4">
+          <Card className="dashboard-card hidden md:block">
+            <CardHeader>
+              <CardTitle>Lista de Produtos Ativos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-auto max-h-[60vh]">
+                <table className="w-full min-w-[600px]">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">
+                        Produtos
+                      </th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">
+                        Categoria
+                      </th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">
+                        Preço
+                      </th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">
+                        Estoque
+                      </th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">
+                        Disponibilidade
+                      </th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">
+                        Ações
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {products.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                          Nenhum produto encontrado.
+                        </td>
+                      </tr>
+                    ) : (
+                      products.map((product) => (
+                        <tr key={product.id} className="border-b border-border hover:bg-muted/50">
+                          <td className="py-4 px-4 font-medium">{product.name}</td>
+                          <td className="py-4 px-4 text-primary">{product.category}</td>
+                          <td className="py-4 px-4">
+                            {product.price.toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            })}
+                          </td>
+                          <td className="py-4 px-4">{product.stockQuantity} uni</td>
+                          <td className="py-4 px-4">
+                            {getStatusBadge(product.availability)}
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-primary hover:text-primary-hover"
+                                onClick={() => {
+                                  setEditingProduct({ ...product });
+                                  setEditOpen(true);
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => handleDeleteProduct(product.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="md:hidden space-y-4">
+            {products.length === 0 ? (
+              <Card className="dashboard-card">
+                <CardContent className="p-4 text-center text-muted-foreground">
+                  Nenhum produto encontrado.
+                </CardContent>
+              </Card>
+            ) : (
+              products.map((product) => (
+                <Card key={product.id} className="dashboard-card">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h3 className="font-medium text-lg">{product.name}</h3>
+                        <p className="text-primary text-sm">{product.category}</p>
+                      </div>
                       <div className="flex gap-2">
                         <Button
                           variant="ghost"
@@ -372,69 +457,195 @@ export const Produtos = () => {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Preço:</span>
+                        <p className="font-medium">
+                          {product.price.toLocaleString("pt-BR", {
+                            style: "currency",
+                            currency: "BRL",
+                          })}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Estoque:</span>
+                        <p className="font-medium">{product.stockQuantity} uni</p>
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      {getStatusBadge(product.availability)}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
-        </CardContent>
-      </Card>
+        </TabsContent>
 
-      {/* Products Cards - Mobile */}
-      <div className="md:hidden space-y-4">
-        {products.map((product) => (
-          <Card key={product.id} className="dashboard-card">
-            <CardContent className="p-4">
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h3 className="font-medium text-lg">{product.name}</h3>
-                  <p className="text-primary text-sm">{product.category}</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-primary hover:text-primary-hover"
-                    onClick={() => {
-                      setEditingProduct({ ...product });
-                      setEditOpen(true);
-                    }}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => handleDeleteProduct(product.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Preço:</span>
-                  <p className="font-medium">
-                    {product.price.toLocaleString("pt-BR", {
-                      style: "currency",
-                      currency: "BRL",
-                    })}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Estoque:</span>
-                  <p className="font-medium">{product.stockQuantity} uni</p>
-                </div>
-              </div>
-              <div className="mt-3">
-                {getStatusBadge(product.availability)}
+        <TabsContent value="inativos" className="space-y-4">
+          <Card className="dashboard-card hidden md:block">
+            <CardHeader>
+              <CardTitle>Produtos Inativos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-auto max-h-[60vh]">
+                <table className="w-full min-w-[600px]">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">
+                        Produtos
+                      </th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">
+                        Categoria
+                      </th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">
+                        Preço
+                      </th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">
+                        Estoque
+                      </th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">
+                        Disponibilidade
+                      </th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">
+                        Ações
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inactiveProducts.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                          Nenhum produto inativo encontrado.
+                        </td>
+                      </tr>
+                    ) : (
+                      inactiveProducts.map((product) => (
+                        <tr key={product.id} className="border-b border-border hover:bg-muted/50">
+                          <td className="py-4 px-4 font-medium">{product.name}</td>
+                          <td className="py-4 px-4 text-primary">{product.category}</td>
+                          <td className="py-4 px-4">
+                            {product.price.toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            })}
+                          </td>
+                          <td className="py-4 px-4">{product.stockQuantity} uni</td>
+                          <td className="py-4 px-4">
+                            {getStatusBadge(product.availability)}
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-primary hover:text-primary-hover"
+                                onClick={() => handleReactivateProduct(product)}
+                              >
+                                <RefreshCcw className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-primary hover:text-primary-hover"
+                                onClick={() => {
+                                  setEditingProduct({ ...product });
+                                  setEditOpen(true);
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => handleDeleteProduct(product.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
+
+          <div className="md:hidden space-y-4">
+            {inactiveProducts.length === 0 ? (
+              <Card className="dashboard-card">
+                <CardContent className="p-4 text-center text-muted-foreground">
+                  Nenhum produto inativo encontrado.
+                </CardContent>
+              </Card>
+            ) : (
+              inactiveProducts.map((product) => (
+                <Card key={product.id} className="dashboard-card">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h3 className="font-medium text-lg">{product.name}</h3>
+                        <p className="text-primary text-sm">{product.category}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-primary hover:text-primary-hover"
+                          onClick={() => handleReactivateProduct(product)}
+                        >
+                          <RefreshCcw className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-primary hover:text-primary-hover"
+                          onClick={() => {
+                            setEditingProduct({ ...product });
+                            setEditOpen(true);
+                          }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => handleDeleteProduct(product.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Preço:</span>
+                        <p className="font-medium">
+                          {product.price.toLocaleString("pt-BR", {
+                            style: "currency",
+                            currency: "BRL",
+                          })}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Estoque:</span>
+                        <p className="font-medium">{product.stockQuantity} uni</p>
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      {getStatusBadge(product.availability)}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader>
