@@ -2,6 +2,7 @@ using back_tcc.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
 
 namespace back_tcc.Controllers;
 
@@ -12,7 +13,8 @@ public class DashboardController(ApplicationDbContext context) : ControllerBase
 {
     private readonly ApplicationDbContext _context = context;
 
-    private static readonly string[] ClosedStatuses = ["Fechada", "Paga"];
+    private static readonly HashSet<string> ClosedStatuses =
+    new(["Fechada", "Paga"], StringComparer.OrdinalIgnoreCase);
 
     // TODO: Replace this mock when the dedicated expenses module is available.
     private const decimal ExpensesMockValue = 8155.00m;
@@ -45,32 +47,17 @@ public class DashboardController(ApplicationDbContext context) : ControllerBase
         var start = now.AddDays(-1);
         var previousStart = start.AddDays(-1);
 
-        var lastDayQuery = _context.Comanda
-            .Where(c => ClosedStatuses.Contains(c.status) && c.fechadoem != null)
-            .Where(c => c.fechadoem >= start && c.fechadoem < now);
+        var currentMetrics = await CalculateClosedSalesMetricsAsync(start, now);
+        var previousMetrics = await CalculateClosedSalesMetricsAsync(previousStart, start);
 
-        var lastDaySales = await lastDayQuery.CountAsync();
+        var salesChange = CalculatePercentageChange(currentMetrics.TotalOrders, previousMetrics.TotalOrders);
+        var valueChange = CalculatePercentageChange(currentMetrics.TotalValue, previousMetrics.TotalValue);
 
-        var lastDayPayments = await _context.Pagamentos
-            .Where(p => p.pagoem >= start && p.pagoem < now)
-            .Where(p => lastDayQuery.Select(c => c.id).Contains(p.comandaid))
-            .SumAsync(p => (decimal?)p.valorpago) ?? 0m;
-
-        var previousQuery = _context.Comanda
-            .Where(c => ClosedStatuses.Contains(c.status) && c.fechadoem != null)
-            .Where(c => c.fechadoem >= previousStart && c.fechadoem < start);
-
-        var previousSales = await previousQuery.CountAsync();
-
-        var previousPayments = await _context.Pagamentos
-            .Where(p => p.pagoem >= previousStart && p.pagoem < start)
-            .Where(p => previousQuery.Select(c => c.id).Contains(p.comandaid))
-            .SumAsync(p => (decimal?)p.valorpago) ?? 0m;
-
-        var salesChange = CalculatePercentageChange(lastDaySales, previousSales);
-        var valueChange = CalculatePercentageChange(lastDayPayments, previousPayments);
-
-        return new LastDaySalesResponse(lastDaySales, lastDayPayments, salesChange, valueChange);
+        return new LastDaySalesResponse(
+            currentMetrics.TotalOrders,
+            currentMetrics.TotalValue,
+            salesChange,
+            valueChange);
     }
 
     [HttpGet("financial-summary")]
@@ -124,26 +111,33 @@ public class DashboardController(ApplicationDbContext context) : ControllerBase
     }
 
     [HttpGet("cashflow-trend")]
-    public async Task<ActionResult<CashFlowSeriesResponse>> GetCashFlowTrendAsync([FromQuery] int days = 7)
+    public async Task<ActionResult<CashFlowSeriesResponse>> GetCashFlowTrendAsync([FromQuery(Name = "periodo")] int periodDays = 7)
     {
-        if (days != 7 && days != 30)
+        var validPeriods = new HashSet<int> { 7, 15, 30 };
+        if (!validPeriods.Contains(periodDays))
         {
-            return BadRequest("O parâmetro days deve ser 7 ou 30.");
+            return BadRequest("O parâmetro periodo deve ser 7, 15 ou 30.");
         }
 
         var now = DateTime.UtcNow;
-        var startDate = now.Date.AddDays(-(days - 1));
+        var startDate = now.Date.AddDays(-(periodDays - 1));
+        var previousPeriodEnd = startDate;
+        var previousPeriodStart = previousPeriodEnd.AddDays(-periodDays);
 
-        var grouped = await _context.Pagamentos
+        var paymentsQuery = _context.Pagamentos.AsNoTracking();
+
+        var grouped = await paymentsQuery
             .Where(p => p.pagoem >= startDate && p.pagoem < now)
             .GroupBy(p => p.pagoem.Date)
-            .Select(g => new { g.Key, Total = g.Sum(p => p.valorpago) })
+            .Select(g => new { Date = g.Key, Total = g.Sum(p => p.valorpago) })
             .ToListAsync();
 
-        var lookup = grouped.ToDictionary(x => x.Key, x => x.Total);
-        var points = new List<CashFlowPointDto>(capacity: days);
+        var totalCollected = grouped.Sum(x => x.Total);
 
-        for (var i = 0; i < days; i++)
+        var lookup = grouped.ToDictionary(x => x.Date, x => x.Total);
+        var points = new List<CashFlowPointDto>(capacity: periodDays);
+
+        for (var i = 0; i < periodDays; i++)
         {
             var date = startDate.AddDays(i);
             lookup.TryGetValue(date, out var total);
@@ -151,7 +145,13 @@ public class DashboardController(ApplicationDbContext context) : ControllerBase
             points.Add(new CashFlowPointDto(normalizedDate, total));
         }
 
-        return new CashFlowSeriesResponse(days, points);
+        var previousPeriodTotal = await paymentsQuery
+            .Where(p => p.pagoem >= previousPeriodStart && p.pagoem < previousPeriodEnd)
+            .SumAsync(p => (decimal?)p.valorpago) ?? 0m;
+
+        var variation = CalculatePercentageChange(totalCollected, previousPeriodTotal);
+
+        return new CashFlowSeriesResponse(periodDays, totalCollected, variation, points);
     }
 
     private static decimal CalculatePercentageChange(decimal current, decimal previous)
@@ -196,5 +196,66 @@ public class DashboardController(ApplicationDbContext context) : ControllerBase
 
     public record CashFlowPointDto(DateTime Date, decimal Value);
 
-    public record CashFlowSeriesResponse(int Days, IReadOnlyList<CashFlowPointDto> Points);
+    public record CashFlowSeriesResponse(int PeriodDays, decimal TotalValue, decimal Variation, IReadOnlyList<CashFlowPointDto> Points);
+
+    private sealed record SalesPeriodMetrics(int TotalOrders, decimal TotalValue);
+
+    private async Task<SalesPeriodMetrics> CalculateClosedSalesMetricsAsync(DateTime start, DateTime end)
+    {
+        var closedComandas = await _context.Comanda
+            .AsNoTracking()
+            .Where(c => c.status != null && ClosedStatuses.Contains(c.status))
+            .Select(c => new
+            {
+                c.id,
+                ClosedAt = c.fechadoem ?? c.pagamentos
+                    .OrderByDescending(p => p.pagoem)
+                    .Select(p => (DateTime?)p.pagoem)
+                    .FirstOrDefault()
+            })
+            .Where(c => c.ClosedAt.HasValue && c.ClosedAt.Value >= start && c.ClosedAt.Value < end)
+            .Select(c => c.id)
+            .ToListAsync();
+
+        var closedSubComandas = await _context.SubComandas
+            .AsNoTracking()
+            .Where(s => s.status != null && ClosedStatuses.Contains(s.status))
+            .Select(s => new
+            {
+                s.id,
+                ClosedAt = s.pagamentos
+                    .OrderByDescending(p => p.pagoem)
+                    .Select(p => (DateTime?)p.pagoem)
+                    .FirstOrDefault()
+            })
+            .Where(s => s.ClosedAt.HasValue && s.ClosedAt.Value >= start && s.ClosedAt.Value < end)
+            .Select(s => s.id)
+            .ToListAsync();
+
+        decimal totalValue = 0m;
+
+        if (closedComandas.Count > 0)
+        {
+            totalValue += await _context.Pagamentos
+                .AsNoTracking()
+                .Where(p => p.subcomandaid == null)
+                .Where(p => p.pagoem >= start && p.pagoem < end)
+                .Where(p => closedComandas.Contains(p.comandaid))
+                .SumAsync(p => (decimal?)p.valorpago) ?? 0m;
+        }
+
+        if (closedSubComandas.Count > 0)
+        {
+            totalValue += await _context.Pagamentos
+                .AsNoTracking()
+                .Where(p => p.subcomandaid != null)
+                .Where(p => p.pagoem >= start && p.pagoem < end)
+                .Where(p => closedSubComandas.Contains(p.subcomandaid!.Value))
+                .SumAsync(p => (decimal?)p.valorpago) ?? 0m;
+        }
+
+        var totalOrders = closedComandas.Count + closedSubComandas.Count;
+
+        return new SalesPeriodMetrics(totalOrders, totalValue);
+    }
 }

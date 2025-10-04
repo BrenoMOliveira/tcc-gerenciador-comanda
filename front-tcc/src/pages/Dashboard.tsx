@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { ArrowDownRight, ArrowUpRight } from "lucide-react"
@@ -64,6 +64,8 @@ export const Dashboard = () => {
 
   const comparisonDays = financialSummary?.comparisonPeriodDays ?? 7
 
+  const [cashFlowPeriod, setCashFlowPeriod] = useState<7 | 15 | 30>(7)
+
   const { data: salesSummary, isLoading: salesLoading } = useQuery({
     queryKey: ["dashboard", "sales-last-day"],
     queryFn: fetchLastDaySales,
@@ -75,8 +77,8 @@ export const Dashboard = () => {
   })
 
   const { data: cashFlowSeries, isLoading: cashFlowLoading } = useQuery({
-    queryKey: ["dashboard", "cashflow-series", comparisonDays],
-    queryFn: () => fetchCashFlowSeries(comparisonDays),
+    queryKey: ["dashboard", "cashflow-series", cashFlowPeriod],
+    queryFn: () => fetchCashFlowSeries(cashFlowPeriod),
   })
 
   const chartData = useMemo(
@@ -105,10 +107,12 @@ export const Dashboard = () => {
         <div className="lg:col-span-2">
           <CashFlowChart
             data={chartData}
-            totalValue={financialSummary?.cashFlow.value ?? 0}
-            variation={financialSummary?.cashFlow.variation}
-            periodDays={comparisonDays}
-            loading={financialLoading || cashFlowLoading}
+            totalValue={cashFlowSeries?.totalValue ?? 0}
+            variation={cashFlowSeries?.variation}
+            periodDays={cashFlowSeries?.periodDays ?? cashFlowPeriod}
+            selectedPeriod={cashFlowPeriod}
+            onPeriodChange={setCashFlowPeriod}
+            loading={cashFlowLoading}
           />
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 hidden">

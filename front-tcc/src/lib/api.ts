@@ -453,10 +453,11 @@ export async function fetchFinancialSummary(params?: { comparisonPeriodDays?: nu
   return res.json();
 }
 
-export async function fetchCashFlowSeries(days = 7): Promise<CashFlowSeries> {
-  const validDays = days === 30 ? 30 : 7;
+export async function fetchCashFlowSeries(period = 7): Promise<CashFlowSeries> {
+  const allowedPeriods = [7, 15, 30];
+  const selectedPeriod = allowedPeriods.includes(period) ? period : 7;
   const res = await authFetch(
-    `${API_URL}/api/dashboard/cashflow-trend?days=${validDays}`
+    `${API_URL}/api/dashboard/cashflow-trend?periodo=${selectedPeriod}`
   );
   if (!res.ok) {
     throw new Error("Failed to fetch cash flow series");

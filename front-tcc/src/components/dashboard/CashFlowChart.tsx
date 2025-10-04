@@ -4,12 +4,16 @@ import { ArrowDownRight, ArrowUpRight } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { cn, formatCurrency, formatPercentage, formatShortDateLabel, getTrendFromValue, Trend } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 
 interface CashFlowChartProps {
   data: { date: string; value: number }[]
   totalValue?: number
   variation?: number
   periodDays?: number
+  selectedPeriod?: number
+  periodOptions?: number[]
+  onPeriodChange?: (period: number) => void
   loading?: boolean
 }
 
@@ -24,8 +28,11 @@ export const CashFlowChart = ({
   data,
   totalValue = 0,
   variation,
-  periodDays = 7,
+  periodDays,
+  selectedPeriod,
+  periodOptions = [7, 15, 30],
   loading,
+  onPeriodChange,
 }: CashFlowChartProps) => {
   const formattedData = useMemo(
     () =>
@@ -36,47 +43,65 @@ export const CashFlowChart = ({
     [data]
   )
 
-  const trend: Trend = getTrendFromValue(variation ?? 0)
-  const variationLabel =
-    variation === undefined ? "--" : formatPercentage(variation, 1)
+  const displayPeriod = periodDays ?? selectedPeriod ?? 7
+  const activePeriod = selectedPeriod ?? displayPeriod
 
-  const changeColor =
-    trend === "positive"
+  const hasVariation = variation !== undefined
+  const trend: Trend = hasVariation ? getTrendFromValue(variation) : "neutral"
+  const variationLabel = hasVariation ? formatPercentage(variation, 1) : "--"
+
+  const changeColor = hasVariation
+    ? trend === "positive"
       ? "text-success"
       : trend === "negative"
         ? "text-destructive"
         : "text-muted-foreground"
+        : "text-muted-foreground"
+
+  const totalLabel = loading ? "--" : formatCurrency(totalValue)
 
   return (
     <Card className="metric-card w-full">
       <CardHeader className="pb-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <CardTitle className="text-lg font-semibold">Fluxo de caixa</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Receita diária dos últimos {periodDays} dias
+              Receita diária dos últimos {displayPeriod} dias
             </p>
           </div>
-          <div className="text-right">
+          <div className="flex flex-col items-end gap-2">
             <p className="text-xs font-medium uppercase text-muted-foreground tracking-wide">
               Total arrecadado
             </p>
-            <p className="text-3xl font-bold text-foreground tracking-tight">
-              {formatCurrency(totalValue)}
-            </p>
+            <p className="text-3xl font-bold text-foreground tracking-tight">{totalLabel}</p>
+            <div className="flex items-center gap-2">
+              {periodOptions.map((option) => (
+                <Button
+                  key={option}
+                  type="button"
+                  size="sm"
+                  variant={option === activePeriod ? "default" : "outline"}
+                  onClick={() => onPeriodChange?.(option)}
+                  disabled={loading && option === activePeriod}
+                >
+                  {option} dias
+                </Button>
+              ))}
+            </div>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
-            Comparado aos {periodDays} dias anteriores
+            Comparado aos {displayPeriod} dias anteriores
           </p>
           <div className={cn("flex items-center text-sm font-medium", changeColor)}>
-            {trend === "positive" && (
+            {hasVariation && trend === "positive" && (
               <ArrowUpRight className="mr-1.5 h-4 w-4" />
             )}
-            {trend === "negative" && (
+            {hasVariation && trend === "negative" && (
               <ArrowDownRight className="mr-1.5 h-4 w-4" />
             )}
             <span>{variationLabel}</span>

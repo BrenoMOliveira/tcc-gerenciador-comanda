@@ -95,6 +95,8 @@ export interface CashFlowPoint {
 }
 
 export interface CashFlowSeries {
-  days: number;
+  periodDays: number;
+  totalValue: number;
+  variation: number;
   points: CashFlowPoint[];
 }
